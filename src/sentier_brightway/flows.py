@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from ._frames import data_root_error, require_columns
-from .constants import BAFU_SOURCE_IRI, EF_SOURCE_IRI, FLOW_IRI_PREFIX, REPO_VOCAB
+from ._frames import codes_from_iris, data_root_error, require_columns
+from .constants import BAFU_SOURCE_IRI, EF_SOURCE_IRI, REPO_VOCAB
 
 SHARD_COLUMNS = frozenset(
     {"iri", "pref_label", "source", "compartment", "sub_compartment", "cas_number"}
@@ -33,19 +33,13 @@ def _categories(compartment: pd.Series, sub_compartment: pd.Series) -> list[tupl
     return [tuple(p for p in (c, s) if p is not None) for c, s in zip(comp, sub)]
 
 
-def _codes(iri: pd.Series) -> pd.Series:
-    bad = iri[~iri.str.startswith(FLOW_IRI_PREFIX)]
-    if not bad.empty:
-        raise ValueError(f"flow iri does not start with {FLOW_IRI_PREFIX!r}: {bad.iloc[0]!r}")
-    return iri.str.removeprefix(FLOW_IRI_PREFIX)
-
-
 def _flows_for(data_root: Path, source_iri: str) -> pd.DataFrame:
+    folder = Path(data_root) / REPO_VOCAB / "data" / "elementary-flows"
     df = _read_all_shards(data_root)
     sel = df[df["source"] == source_iri]
     if sel.empty:
         raise ValueError(f"no elementary flows with source == {source_iri!r} in sentier-vocab")
-    code = _codes(sel["iri"].astype(str))
+    code = codes_from_iris(sel["iri"].astype(str), folder)
     out = pd.DataFrame(
         {
             "code": code,

@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from sentier_brightway._frames import data_root_error, require_columns
+from sentier_brightway._frames import codes_from_iris, data_root_error, require_columns
 
 
 def test_require_columns_passes_when_all_present():
@@ -23,3 +23,16 @@ def test_data_root_error_names_expected_path_and_layout():
     assert "sentier-inventory" in str(err)
     assert "sentier-vocab" in str(err)
     assert isinstance(err, FileNotFoundError)
+
+
+def test_codes_from_iris_strips_the_prefix():
+    iri = pd.Series(["https://vocab.sentier.dev/flows/abc", "https://vocab.sentier.dev/flows/def"])
+    codes = codes_from_iris(iri, Path("somewhere.parquet"))
+    assert list(codes) == ["abc", "def"]
+
+
+def test_codes_from_iris_raises_naming_path_and_bad_value():
+    iri = pd.Series(["https://vocab.sentier.dev/flows/abc", "urn:uuid:def"])
+    with pytest.raises(ValueError, match="somewhere.parquet") as exc_info:
+        codes_from_iris(iri, Path("somewhere.parquet"))
+    assert "urn:uuid:def" in str(exc_info.value)

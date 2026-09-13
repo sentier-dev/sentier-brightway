@@ -16,7 +16,8 @@ class Coverage:
     residual_by_compartment: tuple[tuple[str, int], ...]  # (compartment, unmapped flow count)
     processes: int
     methods: int
-    flows_nomenclature: int = 0  # linked, but the EF target has no factor (impact zero)
+    # subset of flows_mapped: linked, but the EF target has no factor (impact zero)
+    flows_nomenclature: int = 0
 
     @property
     def flow_share(self) -> float:
@@ -28,6 +29,7 @@ class Coverage:
 
 
 def render(cov: Coverage) -> str:
+    residual_lines = [f"  {comp}: {n}" for comp, n in cov.residual_by_compartment] or ["  none"]
     lines = [
         f"Installed {INVENTORY_DB}: {cov.processes} processes",
         f"Installed {BIOSPHERE_DB} and {cov.methods} EF 3.1 methods",
@@ -36,8 +38,8 @@ def render(cov: Coverage) -> str:
         f"exchanges ({cov.exchange_share:.1%})",
         f"  {cov.flows_nomenclature} of the linked flows point at EF flows with no factor "
         "(nomenclature only, impact zero)",
-        f"Unlinked flows kept in {RESIDUAL_DB} (no EF factor):",
-        *(f"  {comp}: {n}" for comp, n in cov.residual_by_compartment),
+        f"Unlinked flows kept in {RESIDUAL_DB} (no EF 3.1 counterpart in the bridge):",
+        *residual_lines,
         "",
         CITATION,
     ]

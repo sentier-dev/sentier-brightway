@@ -1,0 +1,366 @@
+"""Synthetic Sentier data root shaped like the ~/dds checkout."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pandas as pd
+import pytest
+
+P1 = "11111111-1111-1111-1111-111111111111"
+P2 = "22222222-2222-2222-2222-222222222222"
+B1 = "b1b1b1b1-0000-5000-8000-000000000001"  # CO2, mapped to E1
+B2 = "b2b2b2b2-0000-5000-8000-000000000002"  # U-238 in Bq, mapped to E2 with cf 0.001
+B3 = "b3b3b3b3-0000-5000-8000-000000000003"  # only in the nomenclature package -> residual by default
+E1 = "e1e1e1e1-0000-4000-8000-000000000001"
+E2 = "e2e2e2e2-0000-4000-8000-000000000002"
+E3 = "e3e3e3e3-0000-4000-8000-000000000003"  # EF flow with no factor; nomenclature target of B3
+FLOWS = "https://vocab.sentier.dev/flows/"
+CLIMATE = "ef-3.1:climate-change"
+IONISING = "ef-3.1:ionising-radiation"
+
+
+def _write_inventory(root: Path) -> None:
+    sector = root / "sentier-inventory" / "data" / "02-electricity"
+    sector.mkdir(parents=True)
+    processes = pd.DataFrame(
+        {
+            "process_id": [P1, P2],
+            "name": ["Electricity, low voltage, at grid", "Electricity, medium voltage, at grid"],
+            "reference_product": ["Electricity, low voltage", "Electricity, medium voltage"],
+            "reference_unit": ["kWh", "kWh"],
+            "reference_amount": [1.0, 1.0],
+            "location": ["CH", "CH"],
+            "process_type": ["unit", "unit"],
+            "technology": ["grid", "grid"],
+            "comment": ["BAFU category: electricity", "BAFU category: electricity"],
+        }
+    )
+    exchanges = pd.DataFrame(
+        [
+            # process_id, flow, flow_name, flow_type, direction, amount, unit, location, utype, loc, scale
+            (
+                P1,
+                P1,
+                "Electricity, low voltage",
+                "production",
+                "output",
+                1.0,
+                "kWh",
+                "CH",
+                None,
+                None,
+                None,
+            ),
+            (
+                P1,
+                P2,
+                "Electricity, medium voltage",
+                "technosphere",
+                "input",
+                2.0,
+                "kWh",
+                "CH",
+                2.0,
+                0.6931,
+                0.1,
+            ),
+            (
+                P1,
+                B1,
+                "Carbon dioxide, fossil",
+                "biosphere",
+                "output",
+                1.0,
+                "kg",
+                None,
+                2.0,
+                0.0,
+                0.1,
+            ),
+            (P1, B3, "Heat, waste", "biosphere", "output", 5.0, "MJ", None, None, None, None),
+            (
+                P2,
+                P2,
+                "Electricity, medium voltage",
+                "production",
+                "output",
+                1.0,
+                "kWh",
+                "CH",
+                None,
+                None,
+                None,
+            ),
+            (
+                P2,
+                B1,
+                "Carbon dioxide, fossil",
+                "biosphere",
+                "output",
+                0.5,
+                "kg",
+                None,
+                None,
+                None,
+                None,
+            ),
+            (P2, B2, "Uranium-238", "biosphere", "output", 1000.0, "Bq", None, 2.0, 6.9078, 0.2),
+        ],
+        columns=[
+            "process_id",
+            "flow",
+            "flow_name",
+            "flow_type",
+            "direction",
+            "amount",
+            "unit",
+            "location",
+            "uncertainty_type",
+            "loc",
+            "scale",
+        ],
+    )
+    exchanges["minimum"] = None
+    exchanges["maximum"] = None
+    exchanges["minimum"] = exchanges["minimum"].astype("float64")
+    exchanges["maximum"] = exchanges["maximum"].astype("float64")
+    processes.to_parquet(sector / "processes.parquet", index=False)
+    exchanges.to_parquet(sector / "exchanges.parquet", index=False)
+    (sector / "metadata.json").write_text(json.dumps({"sector": "electricity", "rank": 2}))
+
+
+def _vocab_frame(rows: list[dict]) -> pd.DataFrame:
+    cols = [
+        "compartment",
+        "sub_compartment",
+        "cas_number",
+        "formula",
+        "iri",
+        "pref_label",
+        "source",
+    ]
+    return pd.DataFrame(rows, columns=cols)
+
+
+def _write_vocab(root: Path) -> None:
+    folder = root / "sentier-vocab" / "data" / "elementary-flows"
+    folder.mkdir(parents=True)
+    ef = "https://vocab.sentier.dev/sources/ef-3.1"
+    bafu = "https://vocab.sentier.dev/sources/bafu-2026"
+    _vocab_frame(
+        [
+            dict(
+                compartment="air",
+                sub_compartment=None,
+                cas_number="124-38-9",
+                formula="CO2",
+                iri=FLOWS + E1,
+                pref_label="carbon dioxide (fossil)",
+                source=ef,
+            ),
+            dict(
+                compartment="water",
+                sub_compartment=None,
+                cas_number=None,
+                formula=None,
+                iri=FLOWS + E2,
+                pref_label="uranium-238",
+                source=ef,
+            ),
+        ]
+    ).to_parquet(folder / "air-01.parquet", index=False)
+    _vocab_frame(
+        [
+            dict(
+                compartment="emissions to air",
+                sub_compartment="unspecified",
+                cas_number="124-38-9",
+                formula=None,
+                iri=FLOWS + B1,
+                pref_label="Carbon dioxide, fossil",
+                source=bafu,
+            ),
+            dict(
+                compartment="emissions to water",
+                sub_compartment="lake",
+                cas_number=None,
+                formula=None,
+                iri=FLOWS + B2,
+                pref_label="Uranium-238",
+                source=bafu,
+            ),
+            dict(
+                compartment="emissions to air",
+                sub_compartment="unspecified",
+                cas_number=None,
+                formula=None,
+                iri=FLOWS + B3,
+                pref_label="Heat, waste",
+                source=bafu,
+            ),
+        ]
+    ).to_parquet(folder / "emissions-to-air.parquet", index=False)
+
+
+def _write_methods(root: Path) -> None:
+    folder = root / "sentier-methods" / "data" / "01-ef-3.1"
+    folder.mkdir(parents=True)
+    pd.DataFrame(
+        {
+            "method_id": [CLIMATE, IONISING],
+            "method_name": ["EF v3.1", "EF v3.1"],
+            "impact_category": ["Climate change", "Ionising radiation"],
+            "unit": ["kg CO2 eq", "kBq U235 eq"],
+            "methodology": ["EF", "EF"],
+            "source": ["jrc", "jrc"],
+            "datasource": ["ef-3.1", "ef-3.1"],
+        }
+    ).to_parquet(folder / "methods.parquet", index=False)
+    pd.DataFrame(
+        [
+            (
+                CLIMATE,
+                "Climate change",
+                FLOWS + E1,
+                "carbon dioxide (fossil)",
+                1.0,
+                "kg CO2 eq",
+                "Emissions / Emissions to air / Emissions to air, unspecified",
+                None,
+            ),
+            (
+                CLIMATE,
+                "Climate change",
+                FLOWS + E1,
+                "carbon dioxide (fossil)",
+                2.0,
+                "kg CO2 eq",
+                "Emissions / Emissions to air / Emissions to air, unspecified",
+                "DE",
+            ),
+            (
+                IONISING,
+                "Ionising radiation",
+                FLOWS + E2,
+                "uranium-238",
+                3.0,
+                "kBq U235 eq",
+                "Emissions / Emissions to water / Emissions to water, unspecified",
+                None,
+            ),
+        ],
+        columns=[
+            "method_id",
+            "impact_category",
+            "flow",
+            "flow_name",
+            "factor_value",
+            "unit",
+            "flow_context",
+            "location",
+        ],
+    ).to_parquet(folder / "characterization-factors.parquet", index=False)
+    (folder / "metadata.json").write_text(json.dumps({"datasource": "ef-3.1", "rank": 1}))
+
+
+def _write_bridge(root: Path) -> None:
+    folder = root / "sentier-mappings" / "data" / "bafu-2026-v1__ef-3.1"
+    folder.mkdir(parents=True)
+    package = {
+        "name": "bafu-2026-v1__ef-3.1-biosphere-curated",
+        "version": "0.5.0",
+        "replace": [
+            {
+                "source": {
+                    "name": "Carbon dioxide, fossil",
+                    "code": B1,
+                    "unit": "kg",
+                    "context": ["emissions to air", "unspecified"],
+                },
+                "target": {
+                    "name": "carbon dioxide (fossil)",
+                    "code": E1,
+                    "unit": "kilogram",
+                    "context": ["Emissions", "Emissions to air", "Emissions to air, unspecified"],
+                },
+            },
+            {
+                "source": {
+                    "name": "Uranium-238",
+                    "code": B2,
+                    "unit": "Bq",
+                    "context": ["emissions to water", "lake"],
+                },
+                "target": {
+                    "name": "uranium-238",
+                    "code": E2,
+                    "unit": "kBq",
+                    "context": [
+                        "Emissions",
+                        "Emissions to water",
+                        "Emissions to water, unspecified",
+                    ],
+                },
+                "conversion_factor": 0.001,
+            },
+        ],
+    }
+    (folder / "biosphere-1-curated.json").write_text(json.dumps(package))
+    nomenclature = {
+        "name": "bafu-2026-v1__ef-3.1-biosphere-nomenclature",
+        "version": "0.1.0",
+        "replace": [
+            {
+                "source": {
+                    "name": "Heat, waste",
+                    "code": B3,
+                    "unit": "MJ",
+                    "context": ["emissions to air", "unspecified"],
+                },
+                "target": {
+                    "name": "heat, waste",
+                    "code": E3,
+                    "unit": "megajoule",
+                    "context": ["Emissions", "Emissions to air", "Emissions to air, unspecified"],
+                },
+            }
+        ],
+    }
+    (folder / "biosphere-4-nomenclature.json").write_text(json.dumps(nomenclature))
+    (folder / "metadata.json").write_text(
+        json.dumps(
+            {
+                "source": "bafu-2026-v1",
+                "target": "ef-3.1",
+                "schema_version": "0.2.0",
+                "packages": [
+                    {
+                        "file": "biosphere-1-curated.json",
+                        "kind": "biosphere",
+                        "order": 1,
+                        "entries": 2,
+                        "title": "curated",
+                    },
+                    {
+                        "file": "biosphere-4-nomenclature.json",
+                        "kind": "biosphere",
+                        "order": 4,
+                        "entries": 1,
+                        "title": "nomenclature",
+                    },
+                ],
+            }
+        )
+    )
+
+
+@pytest.fixture
+def data_root(tmp_path: Path) -> Path:
+    root = tmp_path / "dds"
+    _write_inventory(root)
+    _write_vocab(root)
+    _write_methods(root)
+    _write_bridge(root)
+    return root

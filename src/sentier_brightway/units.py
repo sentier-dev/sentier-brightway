@@ -33,6 +33,6 @@ _UNITS = MappingProxyType(
 
 def normalize_unit(unit: str | None) -> str:
     """Return the Brightway spelling of ``unit``; unknown spellings pass through unchanged."""
-    if unit is None:
+    if not isinstance(unit, str):
         return ""
     return _UNITS.get(unit, unit)

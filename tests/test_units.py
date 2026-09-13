@@ -20,3 +20,7 @@ def test_unknown_unit_is_returned_unchanged():
 
 def test_none_becomes_empty_string():
     assert normalize_unit(None) == ""
+
+
+def test_nan_becomes_empty_string():
+    assert normalize_unit(float("nan")) == ""

@@ -12,13 +12,16 @@ P1 = "11111111-1111-1111-1111-111111111111"
 P2 = "22222222-2222-2222-2222-222222222222"
 B1 = "b1b1b1b1-0000-5000-8000-000000000001"  # CO2, mapped to E1
 B2 = "b2b2b2b2-0000-5000-8000-000000000002"  # U-238 in Bq, mapped to E2 with cf 0.001
-B3 = "b3b3b3b3-0000-5000-8000-000000000003"  # only in the nomenclature package -> residual by default
+# B3: only in the nomenclature package, so it resolves to the residual database by default
+B3 = "b3b3b3b3-0000-5000-8000-000000000003"
 E1 = "e1e1e1e1-0000-4000-8000-000000000001"
 E2 = "e2e2e2e2-0000-4000-8000-000000000002"
 E3 = "e3e3e3e3-0000-4000-8000-000000000003"  # EF flow with no factor; nomenclature target of B3
 FLOWS = "https://vocab.sentier.dev/flows/"
 CLIMATE = "ef-3.1:climate-change"
 IONISING = "ef-3.1:ionising-radiation"
+P1_CLIMATE_SCORE = 2.0  # 1.0 own CO2 + 2 kWh x 0.5 kg
+P1_IONISING_SCORE = 6.0  # 2 kWh x 1000 Bq x 0.001 x 3.0
 
 
 def _write_inventory(root: Path) -> None:
@@ -39,7 +42,8 @@ def _write_inventory(root: Path) -> None:
     )
     exchanges = pd.DataFrame(
         [
-            # process_id, flow, flow_name, flow_type, direction, amount, unit, location, utype, loc, scale
+            # process_id, flow, flow_name, flow_type, direction, amount, unit,
+            # location, utype, loc, scale
             (
                 P1,
                 P1,

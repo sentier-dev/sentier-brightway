@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68.0"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,7 +7,8 @@ name = "sentier-brightway"
 version = "0.1.0"
 description = "Install Sentier data (BAFU-2026 LCI, EF 3.1 methods, flow mappings) into a Brightway project"
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Laurenz Bougan", email = "laurenz@d-d-s.ch" }]
 requires-python = ">=3.11"
 classifiers = [
@@ -26,11 +27,10 @@ sentier-brightway = "sentier_brightway.cli:main"
 
 [project.optional-dependencies]
 testing = ["pytest>=8", "pytest-cov", "bw2data>=4.0", "bw2calc>=2.0"]
-dev = ["black", "isort", "ruff", "pre-commit", "build"]
+dev = ["black==24.10.0", "isort==5.13.2", "ruff==0.8.6", "pre-commit", "build"]
 
 [tool.setuptools]
 package-dir = { "" = "src" }
-license-files = ["LICENSE"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -44,6 +44,7 @@ markers = ["bw: needs bw2data/bw2calc installed"]
 
 [tool.black]
 line-length = 99
+target-version = ["py311"]
 
 [tool.isort]
 profile = "black"
@@ -51,3 +52,6 @@ line_length = 99
 
 [tool.ruff]
 line-length = 99
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]

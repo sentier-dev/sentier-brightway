@@ -109,11 +109,22 @@ def _ordered_packages(folder: Path, include_nomenclature: bool) -> list[tuple[Pa
     return out
 
 
-def load_bridge(data_root: Path, include_nomenclature: bool = True) -> Mapping[str, BridgeEntry]:
-    """``{bafu_flow_code: BridgeEntry}``; packages apply in ``metadata.json`` order, first wins."""
+def _bridge_folder(data_root: Path) -> Path:
     folder = Path(data_root) / REPO_MAPPINGS / "data" / BRIDGE_FOLDER
     if not folder.is_dir():
         raise data_root_error("bridge folder", folder)
+    return folder
+
+
+def applied_packages(data_root: Path, include_nomenclature: bool = True) -> tuple[str, ...]:
+    """File names of the packages ``load_bridge`` applies, in application order."""
+    folder = _bridge_folder(data_root)
+    return tuple(path.name for path, _ in _ordered_packages(folder, include_nomenclature))
+
+
+def load_bridge(data_root: Path, include_nomenclature: bool = True) -> Mapping[str, BridgeEntry]:
+    """``{bafu_flow_code: BridgeEntry}``; packages apply in ``metadata.json`` order, first wins."""
+    folder = _bridge_folder(data_root)
     merged: dict[str, BridgeEntry] = {}
     for path, is_nomenclature in _ordered_packages(folder, include_nomenclature):
         package = _load_json(path)

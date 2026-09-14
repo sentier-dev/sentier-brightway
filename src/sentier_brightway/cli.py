@@ -11,7 +11,8 @@ from pathlib import Path
 from . import coverage, import_bafu_db, import_bafu_files, render
 from .fetch import FetchError
 
-# files.ExistingOutputError subclasses RuntimeError, so the except tuple in main() covers it
+# files.ExistingOutputError is a RuntimeError and FileNotFoundError/NotADirectoryError are
+# OSErrors, so the except tuple in main() covers them
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -94,7 +95,7 @@ def main(argv: list[str] | None = None) -> int:
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message=r".*conflicting units", category=UserWarning)
             cov = _run(args)
-    except (FetchError, FileNotFoundError, ValueError, ImportError, RuntimeError) as exc:
+    except (FetchError, OSError, ValueError, ImportError, RuntimeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
     finally:

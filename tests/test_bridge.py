@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from sentier_brightway.bridge import BridgeEntry, load_bridge
+from sentier_brightway.bridge import BridgeEntry, applied_packages, load_bridge
 from tests.conftest import B1, B2, B3, E1, E2, E3
 
 FOLDER = "sentier-mappings/data/bafu-2026-v1__ef-3.1"
@@ -246,3 +246,11 @@ def test_unsupported_schema_major_version_is_an_error(data_root):
     (folder / "metadata.json").write_text(json.dumps(meta))
     with pytest.raises(ValueError, match="1.0.0"):
         load_bridge(data_root)
+
+
+def test_applied_packages_lists_what_load_bridge_applies(data_root):
+    assert applied_packages(data_root, include_nomenclature=True) == (
+        "biosphere-1-curated.json",
+        "biosphere-4-nomenclature.json",
+    )
+    assert applied_packages(data_root, include_nomenclature=False) == ("biosphere-1-curated.json",)

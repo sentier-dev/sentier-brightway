@@ -21,6 +21,7 @@ import math
 import random
 import statistics
 import sys
+import tempfile
 import warnings
 from pathlib import Path
 from types import MappingProxyType
@@ -30,6 +31,8 @@ METHOD_PREFIX = ("sentier", "EF v3.1")
 OUTLIER_THRESHOLD = 0.01
 WORST_ROWS = 10
 PROGRESS_EVERY = 500
+DEFAULT_OUT = Path(tempfile.gettempdir()) / "sentier-brightway-parity.csv"
+PRODUCT_COL, UNIT_COL = 0, 3
 
 # our sentier-methods impact category -> column name in the BAFU table (EF 3.1 family)
 COLUMN_FOR_CATEGORY = MappingProxyType(
@@ -106,26 +109,34 @@ def demojibake(text: str) -> str:
     return text
 
 
-def load_table(path: Path) -> dict[str, tuple[str, dict[str, float]]]:
-    """``product -> (unit, {column name: score})`` for the EF 3.1 columns of the sheet."""
+def load_table(path: Path) -> tuple[dict[str, tuple[str, dict[str, float]]], int]:
+    """``product -> (unit, {column name: score})`` for the EF 3.1 columns of the sheet, plus
+    the number of blank score cells (read as 0)."""
     import openpyxl
 
     ws = openpyxl.load_workbook(path, read_only=True)[SHEET]
     rows = ws.iter_rows(values_only=True)
     families, header = next(rows), next(rows)
+    if header[PRODUCT_COL] != "Product" or header[UNIT_COL] != "Unit":
+        raise ValueError(f"unexpected header layout in {path}: {header[:4]}")
     family = None
     ef_columns: dict[int, str] = {}
     for i, (fam, name) in enumerate(zip(families, header)):
         family = fam or family
         if family == "EF 3.1" and name:
             ef_columns[i] = " ".join(str(name).split())
-    table = {}
+    table: dict[str, tuple[str, dict[str, float]]] = {}
+    blanks = 0
     for row in rows:
-        if not row[0]:
+        if not row[PRODUCT_COL]:
             continue
+        blanks += sum(1 for i in ef_columns if row[i] is None)
         scores = {name: float(row[i] or 0.0) for i, name in ef_columns.items()}
-        table[demojibake(str(row[0]).strip())] = (str(row[3]).strip(), scores)
-    return table
+        product = demojibake(str(row[PRODUCT_COL]).strip())
+        if product in table:
+            raise ValueError(f"duplicate product in {path}: {product!r}")
+        table[product] = (str(row[UNIT_COL]).strip(), scores)
+    return table, blanks
 
 
 def unit_factor(ours: str, table: str) -> float | None:
@@ -165,7 +176,6 @@ class Scorer:
         fu, data_objs, _ = bd.prepare_lca_inputs({seed_activity: 1.0}, method=keys[0])
         self.lca = bc.LCA(fu, data_objs=data_objs)
         self.lca.lci(factorize=True)
-        self.lca.lcia()
         self.matrices = {}
         for key in keys:
             self.lca.switch_method(key)
@@ -250,12 +260,16 @@ def write_csv(rows: list[dict], path: Path) -> None:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    p.add_argument("--xlsx", required=True, type=Path)
-    p.add_argument("--project", required=True)
-    p.add_argument("--sample", type=int, default=200)
-    p.add_argument("--seed", type=int, default=0)
+    p.add_argument(
+        "--xlsx", required=True, type=Path, help="BAFU-2026 v1 LCIA Results_corrected.xlsx"
+    )
+    p.add_argument("--project", required=True, help="bw2data project holding the install")
+    p.add_argument("--sample", type=int, default=200, help="number of random processes")
+    p.add_argument("--seed", type=int, default=0, help="random seed for --sample")
     p.add_argument("--all", action="store_true", help="every process, ignores --sample")
-    p.add_argument("--out", type=Path, default=Path("parity.csv"))
+    p.add_argument(
+        "--out", type=Path, default=DEFAULT_OUT, help=f"output CSV (default {DEFAULT_OUT})"
+    )
     return p.parse_args(argv)
 
 
@@ -282,7 +296,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: project {args.project!r} does not exist", file=sys.stderr)
         return 2
     bd.projects.set_current(args.project)
-    table = load_table(args.xlsx)
+    table, blanks = load_table(args.xlsx)
     methods = installed_methods(bd)
     problems = check_mapping(methods, table)
     if problems:
@@ -290,7 +304,10 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     db = bd.Database(INVENTORY_DB)
     processes = pick_processes(db, None if args.all else args.sample, args.seed)
-    print(f"{len(methods)} methods, {len(processes)} processes, {len(table)} table rows")
+    print(
+        f"{len(methods)} methods, {len(processes)} processes, {len(table)} table rows, "
+        f"{blanks} blank score cells read as 0"
+    )
     scorer = Scorer(bd, bc, processes[0], [key for _, key in methods])
     rows, counts = compare(scorer, table, methods, processes)
     write_csv(rows, args.out)

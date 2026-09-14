@@ -389,3 +389,21 @@ def data_root(tmp_path: Path) -> Path:
     _write_methods(root)
     _write_bridge(root)
     return root
+
+
+@pytest.fixture
+def bw_project(tmp_path: Path, monkeypatch) -> str:
+    """An isolated Brightway base directory under ``tmp_path``; never the user's real one.
+
+    Only tests marked ``bw`` use it; they ``importorskip`` bw2data themselves first."""
+    bd = pytest.importorskip("bw2data")
+    base = tmp_path / "bw"
+    base.mkdir()
+    (base / "logs").mkdir()
+    monkeypatch.setenv("BRIGHTWAY2_DIR", str(base))
+    bd.projects.change_base_directories(base_dir=base, base_logs_dir=base / "logs")
+    name = "sentier-brightway-test"
+    bd.projects.set_current(name)
+    print(f"bw2data project dir: {bd.projects.dir}")
+    assert Path(bd.projects.dir).is_relative_to(base)
+    return name

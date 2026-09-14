@@ -64,7 +64,6 @@ def test_write_and_load_round_trip(registry, tmp_path):
         pd.testing.assert_frame_equal(
             getattr(registry, name).reset_index(drop=True),
             getattr(loaded, name).reset_index(drop=True),
-            check_dtype=False,
         )
 
 
@@ -73,3 +72,44 @@ def test_categories_are_joined_with_double_colon(registry):
         registry.biosphere.set_index("code").loc[B3, "categories"]
         == "emissions to air::unspecified"
     )
+
+
+def test_exchange_dtypes_are_fixed_regardless_of_content(registry):
+    ex = registry.exchanges
+    for col in ("loc", "scale", "minimum", "maximum", "amount"):
+        assert ex[col].dtype == "float64"
+    assert str(ex["uncertainty_type"].dtype) == "Int64"
+    assert str(ex["negative"].dtype) == "boolean"
+
+
+def test_negative_flag_marks_only_the_negative_row(registry, tmp_path):
+    write_registry(registry, tmp_path / "registry")
+    loaded = load_registry(tmp_path / "registry")
+    ex = loaded.exchanges
+    p2 = loaded.processes.set_index("code").loc[P2, "bw_id"]
+    negative_rows = ex[ex.negative.fillna(False)]
+    assert len(negative_rows) == 1
+    row = negative_rows.iloc[0]
+    assert row.process_bw_id == p2 and row.input_code == B3 and row.amount == -2.0
+    assert ex.negative.isna().sum() == len(ex) - 1
+
+
+def test_biosphere_type_is_emission_or_natural_resource(registry):
+    assert set(registry.biosphere.type) <= {"emission", "natural resource"}
+
+
+def test_load_registry_missing_column_raises(registry, tmp_path):
+    folder = tmp_path / "registry"
+    write_registry(registry, folder)
+    path = folder / "processes.parquet"
+    pd.read_parquet(path).drop(columns=["production_amount"]).to_parquet(path, index=False)
+    with pytest.raises(ValueError, match="processes.parquet"):
+        load_registry(folder)
+
+
+def test_load_registry_missing_table_raises(registry, tmp_path):
+    folder = tmp_path / "registry"
+    write_registry(registry, folder)
+    (folder / "biosphere.parquet").unlink()
+    with pytest.raises(FileNotFoundError):
+        load_registry(folder)

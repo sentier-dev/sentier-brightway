@@ -14,7 +14,7 @@ def test_fixture_layout(data_root):
         data_root / "sentier-mappings/data/bafu-2026-v1__ef-3.1/biosphere-1-curated.json"
     ).is_file()
     ex = pd.read_parquet(data_root / "sentier-inventory/data/02-electricity/exchanges.parquet")
-    assert len(ex) == 7
+    assert len(ex) == 8
 
 
 def test_fixture_invariants(data_root):
@@ -43,7 +43,7 @@ def test_fixture_invariants(data_root):
 
     lognormal = ex[ex.uncertainty_type == 2]
     for row in lognormal.itertuples():
-        assert math.isclose(row.loc, math.log(row.amount), abs_tol=1e-3)
+        assert math.isclose(row.loc, math.log(abs(row.amount)), abs_tol=1e-3)
 
     meta = json.loads((bridge_folder / "metadata.json").read_text())
     assert [p["order"] for p in meta["packages"]] == sorted(p["order"] for p in meta["packages"])

@@ -17,6 +17,9 @@ B3 = "b3b3b3b3-0000-5000-8000-000000000003"
 E1 = "e1e1e1e1-0000-4000-8000-000000000001"
 E2 = "e2e2e2e2-0000-4000-8000-000000000002"
 E3 = "e3e3e3e3-0000-4000-8000-000000000003"  # EF flow with no factor; nomenclature target of B3
+# B4: nomenclature entry onto E1 with a *different* unit (kBq vs kilogram) and no exchange
+# rows, so it exercises the bridge unit-conflict warning without touching any score
+B4 = "b4b4b4b4-0000-5000-8000-000000000004"
 FLOWS = "https://vocab.sentier.dev/flows/"
 CLIMATE = "ef-3.1:climate-change"
 IONISING = "ef-3.1:ionising-radiation"
@@ -111,6 +114,8 @@ def _write_inventory(root: Path) -> None:
                 None,
             ),
             (P2, B2, "Uranium-238", "biosphere", "output", 1000.0, "Bq", None, 2.0, 6.9078, 0.2),
+            # negative lognormal: BAFU stores loc = ln(|amount|); no CF impact via B3
+            (P2, B3, "Heat, waste", "biosphere", "output", -2.0, "MJ", None, 2.0, 0.6931, 0.1),
         ],
         columns=[
             "process_id",
@@ -329,7 +334,21 @@ def _write_bridge(root: Path) -> None:
                     "unit": "megajoule",
                     "context": ["Emissions", "Emissions to air", "Emissions to air, unspecified"],
                 },
-            }
+            },
+            {
+                "source": {
+                    "name": "Carbon dioxide, fossil, activity",
+                    "code": B4,
+                    "unit": "kBq",
+                    "context": ["emissions to air", "unspecified"],
+                },
+                "target": {
+                    "name": "carbon dioxide (fossil)",
+                    "code": E1,
+                    "unit": "kBq",
+                    "context": ["Emissions", "Emissions to air", "Emissions to air, unspecified"],
+                },
+            },
         ],
     }
     (folder / "biosphere-4-nomenclature.json").write_text(json.dumps(nomenclature))
@@ -351,7 +370,7 @@ def _write_bridge(root: Path) -> None:
                         "file": "biosphere-4-nomenclature.json",
                         "kind": "biosphere",
                         "order": 4,
-                        "entries": 1,
+                        "entries": 2,
                         "title": "nomenclature",
                     },
                 ],

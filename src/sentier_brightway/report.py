@@ -18,6 +18,8 @@ class Coverage:
     methods: int
     # subset of flows_mapped: linked, but the EF target has no factor (impact zero)
     flows_nomenclature: int = 0
+    # EF flows targeted by bridge entries that disagree on the target unit (first wins)
+    unit_conflicts: int = 0
 
     @property
     def flow_share(self) -> float:
@@ -30,6 +32,12 @@ class Coverage:
 
 def render(cov: Coverage) -> str:
     residual_lines = [f"  {comp}: {n}" for comp, n in cov.residual_by_compartment] or ["  none"]
+    conflict_lines = []
+    if cov.unit_conflicts:
+        conflict_lines = [
+            f"  {cov.unit_conflicts} EF flows targeted with conflicting units "
+            "(check sentier-mappings)"
+        ]
     lines = [
         f"Installed {INVENTORY_DB}: {cov.processes} processes",
         f"Installed {BIOSPHERE_DB} and {cov.methods} EF 3.1 methods",
@@ -38,6 +46,7 @@ def render(cov: Coverage) -> str:
         f"exchanges ({cov.exchange_share:.1%})",
         f"  {cov.flows_nomenclature} of the linked flows point at EF flows with no factor "
         "(nomenclature only, impact zero)",
+        *conflict_lines,
         f"Unlinked flows kept in {RESIDUAL_DB} (no EF 3.1 counterpart in the bridge):",
         *residual_lines,
         "",

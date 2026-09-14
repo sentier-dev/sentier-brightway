@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import math
-from collections import Counter
+import warnings
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from typing import Mapping
 
@@ -17,6 +18,12 @@ from .report import Coverage
 from .units import normalize_unit
 
 Key = tuple[str, str]
+
+# stats_arrays ids whose support is positive: lognormal, bernoulli, weibull, gamma, beta.
+# A negative amount under one of these carries ``negative: True`` and loc = ln(|amount|).
+_POSITIVE_ONLY_DISTRIBUTIONS = frozenset({2, 6, 8, 9, 10})
+_RESOURCE_PREFIXES = ("resources", "natural resource", "raw")
+_MAX_EXAMPLES = 5
 
 
 @dataclass(frozen=True)
@@ -43,14 +50,36 @@ def _is_null(value: object) -> bool:
     return value is None or bool(pd.isna(value))
 
 
+def _node_type(categories: tuple[str, ...]) -> str:
+    """bw2data flow type from the first category: resources are ``natural resource``."""
+    first = categories[0].lower() if categories else ""
+    return "natural resource" if first.startswith(_RESOURCE_PREFIXES) else "emission"
+
+
 # ----------------------------------------------------------------------------- biosphere
 
 
-def _ef_units_from_bridge(bridge: Mapping[str, BridgeEntry]) -> dict[str, str]:
+def _bridge_units(bridge: Mapping[str, BridgeEntry]) -> tuple[dict[str, str], tuple[str, ...]]:
+    """First normalised target unit per EF code (bridge order), plus the codes whose entries
+    disagree on the unit, in the order they were first seen."""
+    seen: dict[str, set[str]] = defaultdict(set)
     units: dict[str, str] = {}
     for entry in bridge.values():
-        units.setdefault(entry.target_code, normalize_unit(entry.target_unit))
-    return units
+        unit = normalize_unit(entry.target_unit)
+        units.setdefault(entry.target_code, unit)
+        seen[entry.target_code].add(unit)
+    conflicts = tuple(code for code, found in seen.items() if len(found) > 1)
+    return units, conflicts
+
+
+def _warn_unit_conflicts(conflicts: tuple[str, ...]) -> None:
+    if conflicts:
+        examples = ", ".join(conflicts[:3])
+        warnings.warn(
+            f"{len(conflicts)} EF flows are targeted with conflicting units in the bridge "
+            f"(e.g. {examples}); the first package's unit is kept",
+            stacklevel=2,
+        )
 
 
 def build_biosphere(
@@ -58,23 +87,27 @@ def build_biosphere(
 ) -> dict[Key, dict]:
     """One node per EF flow known to vocab, to any CF table, or to any bridge target."""
     names: dict[str, str] = dict(zip(ef_flows["code"], ef_flows["name"]))
-    categories: dict[str, tuple[str, ...]] = dict(zip(ef_flows["code"], ef_flows["categories"]))
     cas: dict[str, str | None] = dict(zip(ef_flows["code"], ef_flows["cas_number"]))
+    # CF context is more specific than the vocab compartment, so it takes priority; among
+    # methods the first one listing a flow wins, like names.
+    cf_categories: dict[str, tuple[str, ...]] = {}
     for spec in methods:
         for code, name in spec.flow_name.items():
             names.setdefault(code, name)
         for code, ctx in spec.flow_context.items():
             if ctx:
-                categories[code] = ctx  # CF context is more specific than vocab compartment
-    units = _ef_units_from_bridge(bridge)
-    codes = set(names) | {e.target_code for e in bridge.values()}
+                cf_categories.setdefault(code, ctx)
+    categories = {**dict(zip(ef_flows["code"], ef_flows["categories"])), **cf_categories}
+    units, conflicts = _bridge_units(bridge)
+    _warn_unit_conflicts(conflicts)
     nodes = {}
-    for code in sorted(codes):
+    for code in sorted(set(names) | set(units)):
+        cats = tuple(categories.get(code, ()))
         node = {
             "name": names.get(code, code),
-            "categories": tuple(categories.get(code, ())),
+            "categories": cats,
             "unit": units.get(code, "kilogram"),
-            "type": "emission",
+            "type": _node_type(cats),
             "exchanges": [],
         }
         if cas.get(code):
@@ -90,7 +123,8 @@ def build_residual(
     unmapped_codes: set[str], bafu_flows: pd.DataFrame, exchanges: pd.DataFrame
 ) -> dict[Key, dict]:
     vocab = bafu_flows.set_index("code")
-    by_code = exchanges.drop_duplicates("flow").set_index("flow")
+    bio = exchanges[exchanges["flow_type"] == "biosphere"]
+    by_code = bio.drop_duplicates("flow").set_index("flow")
     nodes = {}
     for code in sorted(unmapped_codes):
         name = str(vocab["name"].get(code, by_code["flow_name"].get(code, code)))
@@ -99,7 +133,7 @@ def build_residual(
             "name": name,
             "categories": cats,
             "unit": normalize_unit(by_code["unit"].get(code)),
-            "type": "emission",
+            "type": _node_type(cats),
             "exchanges": [],
         }
     return nodes
@@ -107,58 +141,123 @@ def build_residual(
 
 # ----------------------------------------------------------------------------- inventory
 
+EXCHANGE_FIELDS = (
+    "process_id",
+    "flow",
+    "flow_name",
+    "flow_type",
+    "amount",
+    "unit",
+    "uncertainty_type",
+    "loc",
+    "scale",
+    "minimum",
+    "maximum",
+)
 
-def _uncertainty(row: pd.Series, factor: float) -> dict:
-    """bw2data uncertainty fields, rescaled when the amount was multiplied by ``factor``."""
-    utype = row["uncertainty_type"]
-    if _is_null(utype):
+
+def _column(df: pd.DataFrame, name: str) -> list:
+    """One plain Python list per column, nulls (NaN and ``pd.NA``) normalised to ``None``."""
+    s = df[name]
+    return s.astype(object).where(s.notna(), None).tolist()
+
+
+def _uncertainty(
+    utype: object,
+    loc: object,
+    scale: object,
+    minimum: object,
+    maximum: object,
+    factor: float,
+    amount: float,
+) -> dict:
+    """bw2data uncertainty fields, rescaled when the amount was multiplied by ``factor``.
+
+    ``amount`` is the already-scaled exchange amount; it only decides the ``negative`` flag."""
+    if utype is None:
         return {}
     utype = int(utype)
     out: dict = {"uncertainty type": utype}
-    loc, scale = row["loc"], row["scale"]
-    if not _is_null(loc):
-        if utype == 2:  # lognormal: loc is ln(amount)
-            out["loc"] = float(loc) + math.log(factor)
-        else:
-            out["loc"] = float(loc) * factor
-    if not _is_null(scale):
+    if loc is not None:
+        # lognormal: loc is ln(|amount|), so a multiplicative factor is an additive shift
+        out["loc"] = float(loc) + math.log(factor) if utype == 2 else float(loc) * factor
+    if scale is not None:
         out["scale"] = float(scale) if utype == 2 else float(scale) * factor
-    for field in ("minimum", "maximum"):
-        if not _is_null(row[field]):
-            out[field] = float(row[field]) * factor
+    if minimum is not None:
+        out["minimum"] = float(minimum) * factor
+    if maximum is not None:
+        out["maximum"] = float(maximum) * factor
+    if amount < 0 and utype in _POSITIVE_ONLY_DISTRIBUTIONS:
+        out["negative"] = True
     return out
 
 
-def _exchange(row: pd.Series, bridge: Mapping[str, BridgeEntry]) -> dict:
-    flow_type = row["flow_type"]
-    factor = 1.0
+def _link(pid: str, flow: str, flow_type: str, bridge: Mapping[str, BridgeEntry]) -> tuple:
+    """``(input key, exchange type, target unit or None, conversion factor)`` for one row."""
     if flow_type == "production":
-        key, etype, unit = (INVENTORY_DB, row["process_id"]), "production", row["unit"]
-    elif flow_type == "technosphere":
-        key, etype, unit = (INVENTORY_DB, row["flow"]), "technosphere", row["unit"]
-    else:
-        entry = bridge.get(row["flow"])
-        if entry is None:
-            key, etype, unit = (RESIDUAL_DB, row["flow"]), "biosphere", row["unit"]
-        else:
-            key, etype, unit = (BIOSPHERE_DB, entry.target_code), "biosphere", entry.target_unit
-            factor = entry.conversion_factor
-    return {
-        "input": key,
-        "type": etype,
-        "amount": float(row["amount"]) * factor,
-        "unit": normalize_unit(unit),
-        "name": str(row["flow_name"]),
-        **_uncertainty(row, factor),
-    }
+        return (INVENTORY_DB, pid), "production", None, 1.0
+    if flow_type == "technosphere":
+        return (INVENTORY_DB, flow), "technosphere", None, 1.0
+    entry = bridge.get(flow)
+    if entry is None:
+        return (RESIDUAL_DB, flow), "biosphere", None, 1.0
+    return (
+        (BIOSPHERE_DB, entry.target_code),
+        "biosphere",
+        entry.target_unit,
+        entry.conversion_factor,
+    )
+
+
+def _check_links(processes: pd.DataFrame, exchanges: pd.DataFrame) -> None:
+    """Fail fast on technosphere links to unknown processes and on processes whose exchange
+    rows lack a production row (a process with no rows at all is allowed and stays empty)."""
+    known = set(processes["process_id"])
+    tech = exchanges[exchanges["flow_type"] == "technosphere"]
+    dangling = tech[~tech["flow"].isin(known)]
+    if not dangling.empty:
+        pairs = list(dangling[["process_id", "flow"]].itertuples(index=False, name=None))
+        raise ValueError(
+            f"{len(dangling)} technosphere exchanges point at unknown processes, e.g. "
+            f"{pairs[:_MAX_EXAMPLES]}"
+        )
+    with_rows = set(exchanges["process_id"])
+    with_production = set(exchanges.loc[exchanges["flow_type"] == "production", "process_id"])
+    missing = sorted((with_rows & known) - with_production)
+    if missing:
+        raise ValueError(
+            f"{len(missing)} processes have exchanges but no production exchange, e.g. "
+            f"{missing[:_MAX_EXAMPLES]}"
+        )
+
+
+def _exchanges_by_process(
+    exchanges: pd.DataFrame, bridge: Mapping[str, BridgeEntry]
+) -> dict[str, list[dict]]:
+    """One column-wise pass over the exchange frame; far cheaper than per-row ``iterrows``."""
+    grouped: dict[str, list[dict]] = defaultdict(list)
+    columns = [_column(exchanges, name) for name in EXCHANGE_FIELDS]
+    for pid, flow, name, ftype, amount, unit, utype, loc, scale, mn, mx in zip(*columns):
+        key, etype, target_unit, factor = _link(pid, flow, ftype, bridge)
+        scaled = float(amount) * factor
+        grouped[pid].append(
+            {
+                "input": key,
+                "type": etype,
+                "amount": scaled,
+                "unit": normalize_unit(unit if target_unit is None else target_unit),
+                "name": str(name),
+                **_uncertainty(utype, loc, scale, mn, mx, factor, scaled),
+            }
+        )
+    return grouped
 
 
 def build_inventory(inventory: Inventory, bridge: Mapping[str, BridgeEntry]) -> dict[Key, dict]:
-    grouped = {pid: df for pid, df in inventory.exchanges.groupby("process_id", sort=False)}
+    _check_links(inventory.processes, inventory.exchanges)
+    grouped = _exchanges_by_process(inventory.exchanges, bridge)
     nodes = {}
     for p in inventory.processes.itertuples(index=False):
-        rows = grouped.get(p.process_id)
-        exchanges = [] if rows is None else [_exchange(r, bridge) for _, r in rows.iterrows()]
         node = {
             "name": str(p.name),
             "reference product": str(p.reference_product),
@@ -166,7 +265,7 @@ def build_inventory(inventory: Inventory, bridge: Mapping[str, BridgeEntry]) -> 
             "location": str(p.location),
             "type": "process",
             "production amount": float(p.reference_amount),
-            "exchanges": exchanges,
+            "exchanges": grouped.get(p.process_id, []),
         }
         comment = getattr(p, "comment", None)
         if not _is_null(comment):
@@ -192,28 +291,30 @@ def _bind_methods(methods: tuple[MethodSpec, ...]) -> tuple[BoundMethod, ...]:
 
 
 def _coverage(
-    inventory: Inventory,
+    bio: pd.DataFrame,
+    unmapped: set[str],
     bridge: Mapping[str, BridgeEntry],
     bafu_flows: pd.DataFrame,
-    unmapped: set[str],
-    n_methods: int,
+    processes: int,
+    methods: int,
+    unit_conflicts: int,
 ) -> Coverage:
-    bio = inventory.exchanges[inventory.exchanges["flow_type"] == "biosphere"]
+    """Coverage over ``bio`` (the biosphere exchange rows) and the ``unmapped`` codes."""
     used = set(bio["flow"])
-    mapped_rows = int(bio["flow"].isin(bridge.keys()).sum())
     compartments = dict(
         zip(bafu_flows["code"], (c[0] if c else "unknown" for c in bafu_flows["categories"]))
     )
     counter = Counter(compartments.get(code, "unknown") for code in unmapped)
     return Coverage(
         flows_used=len(used),
-        flows_mapped=len(used & set(bridge.keys())),
+        flows_mapped=len(used) - len(unmapped),
         flows_nomenclature=sum(1 for code in used if code in bridge and bridge[code].nomenclature),
         exchange_rows=len(bio),
-        exchange_rows_mapped=mapped_rows,
+        exchange_rows_mapped=int(bio["flow"].isin(bridge.keys()).sum()),
         residual_by_compartment=tuple(sorted(counter.items())),
-        processes=len(inventory.processes),
-        methods=n_methods,
+        processes=processes,
+        methods=methods,
+        unit_conflicts=unit_conflicts,
     )
 
 
@@ -226,10 +327,19 @@ def build(
 ) -> BuildResult:
     bio = inventory.exchanges[inventory.exchanges["flow_type"] == "biosphere"]
     unmapped = set(bio["flow"]) - set(bridge.keys())
+    _, conflicts = _bridge_units(bridge)
     return BuildResult(
         biosphere=build_biosphere(ef_flows, bridge, methods),
         residual=build_residual(unmapped, bafu_flows, inventory.exchanges),
         inventory=build_inventory(inventory, bridge),
         methods=_bind_methods(methods),
-        coverage=_coverage(inventory, bridge, bafu_flows, unmapped, len(methods)),
+        coverage=_coverage(
+            bio,
+            unmapped,
+            bridge,
+            bafu_flows,
+            processes=len(inventory.processes),
+            methods=len(methods),
+            unit_conflicts=len(conflicts),
+        ),
     )

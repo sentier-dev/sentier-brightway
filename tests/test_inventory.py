@@ -8,7 +8,7 @@ def test_loads_all_sectors_into_two_frames(data_root):
     inv = load_inventory(data_root)
     assert isinstance(inv, Inventory)
     assert sorted(inv.processes.process_id) == sorted([P1, P2])
-    assert len(inv.exchanges) == 7
+    assert len(inv.exchanges) == 8
 
 
 def test_missing_required_column_is_an_error(data_root):

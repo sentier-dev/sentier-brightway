@@ -19,6 +19,7 @@ _UNITS = MappingProxyType(
         "m2": "square meter",
         "km": "kilometer",
         "m2a": "square meter-year",
+        "m2*a": "square meter-year",  # bridge target spelling
         "my": "meter-year",
         "Nm3": "normal cubic meter",
         "m": "meter",

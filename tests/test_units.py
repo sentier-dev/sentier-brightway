@@ -10,6 +10,10 @@ def test_known_bafu_spellings():
     assert normalize_unit("m2a") == "square meter-year"
 
 
+def test_bridge_area_time_spelling():
+    assert normalize_unit("m2*a") == "square meter-year"
+
+
 def test_bridge_target_spellings_pass_through():
     assert normalize_unit("kilogram") == "kilogram"
 

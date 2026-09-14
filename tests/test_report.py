@@ -66,3 +66,19 @@ def test_empty_residual_renders_none():
     )
     text = render(cov)
     assert "  none" in text
+
+
+def test_unit_conflicts_rendered_only_when_present():
+    base = dict(
+        flows_used=3,
+        flows_mapped=3,
+        exchange_rows=3,
+        exchange_rows_mapped=3,
+        residual_by_compartment=(),
+        processes=1,
+        methods=1,
+    )
+    assert Coverage(**base).unit_conflicts == 0
+    assert "conflicting units" not in render(Coverage(**base))
+    text = render(Coverage(**base, unit_conflicts=91))
+    assert "91 EF flows targeted with conflicting units (check sentier-mappings)" in text

@@ -59,9 +59,10 @@ def main(argv: list[str] | None = None) -> int:
     logger.addHandler(handler)
     logger.setLevel(min(logger.level or logging.INFO, logging.INFO))
     try:
-        # the rendered report already carries the unit-conflict line; the API keeps warning
+        # the rendered report already carries the unit-conflict line; the API keeps warning,
+        # and any other warning (bw2data's included) still reaches the user
         with warnings.catch_warnings():
-            warnings.simplefilter("ignore", UserWarning)
+            warnings.filterwarnings("ignore", message=r".*conflicting units", category=UserWarning)
             cov = _run(args)
     except (FetchError, FileNotFoundError, ValueError, ImportError, RuntimeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

@@ -1,3 +1,5 @@
+import warnings
+
 import pytest
 
 from sentier_brightway import cli, coverage
@@ -54,3 +56,15 @@ def test_cli_db_shows_method_progress_on_stderr(bw_project, data_root, capsys):
     assert "writing method 1/2" in err and "writing method 2/2" in err
     cli.main(["db", "--project", "cli-test", "--data-root", str(data_root), "--overwrite"])
     assert capsys.readouterr().err.count("writing method 1/2") == 1  # no duplicate handlers
+
+
+def test_cli_lets_other_user_warnings_through(data_root, monkeypatch):
+    real_run = cli._run
+
+    def warn_then_run(args):
+        warnings.warn("bw2data says something", UserWarning, stacklevel=1)
+        return real_run(args)
+
+    monkeypatch.setattr(cli, "_run", warn_then_run)
+    with pytest.warns(UserWarning, match="bw2data says something"):
+        assert cli.main(["coverage", "--data-root", str(data_root)]) == 0

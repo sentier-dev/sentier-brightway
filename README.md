@@ -72,27 +72,45 @@ bw2data is not imported:
 The folder contains:
 
     registry/       processes, biosphere, exchanges, methods, characterization-factors (parquet)
-    mappings/       the randonneur packages that were applied, copied verbatim from sentier-mappings
+    mappings/       every JSON of the sentier-mappings bridge folder, copied verbatim (see manifest)
     bw_package/     bw_processing datapackages: bafu-2026/ (inventory) and methods/<slug>/ (one per method)
     manifest.json   layout version, data pins, citation, coverage, row counts
+
+`manifest.json` also carries `bridge_packages`, the packages that were actually applied in
+order, and `include_nomenclature`, which says whether the order-4 nomenclature package was
+among them (`--skip-nomenclature` sets it to false). `--overwrite` only ever replaces a
+folder that holds a previous export's `manifest.json`; any other non-empty folder, a file or
+a symlink as `--out` is refused and left untouched.
 
 Every table in `registry/` is joined by an integer `bw_id`: a contiguous id starting at 1,
 processes first (sorted), then the EF biosphere flows, then the residual BAFU flows. The same
 ids are the row/column indices of the datapackages, so `registry/processes.parquet` is the
 lookup from a process `code` or `name` to the id you put into a demand vector.
 
-`bw_package/` is stock bw_processing, so stock bw2calc reads it with no bw2data project:
+`bw_package/` is stock bw_processing, so stock bw2calc reads it with no bw2data project and
+without importing sentier_brightway at all:
 
+    from pathlib import Path
     import bw2calc as bc
-    from sentier_brightway.datapackage import load_inventory_datapackage, load_method_datapackage
-    inventory = load_inventory_datapackage("./bafu-2026-ef31")
-    method = load_method_datapackage("./bafu-2026-ef31", "ef-3.1:climate-change")
+    import bw_processing as bwp
+    import pandas as pd
+
+    out = Path("./bafu-2026-ef31")
+    procs = pd.read_parquet(out / "registry/processes.parquet")
+    code = procs.loc[procs.name.str.startswith("Electricity, low voltage, production CH"), "code"].iloc[0]
+    bw_id = int(procs.loc[procs.code == code, "bw_id"].iloc[0])
+
+    fs = bwp.generic_directory_filesystem   # dirpath must be a pathlib.Path
+    inventory = bwp.load_datapackage(fs(dirpath=out / "bw_package/bafu-2026"))
+    method = bwp.load_datapackage(fs(dirpath=out / "bw_package/methods/ef-3.1__climate-change"))
     lca = bc.LCA({bw_id: 1.0}, data_objs=[inventory, method])
     lca.lci(); lca.lcia(); lca.score
 
-The two loaders are conveniences; `bw_processing.load_datapackage(bw_processing.FS(...))` on
-the folders works just as well. Technosphere inputs are stored as positive amounts with
-`flip_array` set, the usual bw_processing convention. The parquet side reads back with
+Method folders are named by slug (`ef-3.1__<category>`); `registry/methods.parquet` lists
+them. `sentier_brightway.datapackage.load_inventory_datapackage(out)` and
+`load_method_datapackage(out, method_id)` wrap exactly those two `load_datapackage` calls.
+Technosphere inputs are stored as positive amounts with `flip_array` set, the usual
+bw_processing convention. The parquet side reads back with
 `sentier_brightway.registry.load_registry(folder)`; the shortest path to one score is:
 
     from sentier_brightway.registry import load_registry

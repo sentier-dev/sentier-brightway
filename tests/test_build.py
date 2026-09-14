@@ -4,7 +4,14 @@ import warnings
 import pytest
 
 from sentier_brightway.bridge import load_bridge
-from sentier_brightway.build import BuildResult, _node_type, _uncertainty, build, build_inventory
+from sentier_brightway.build import (
+    BuildResult,
+    _node_type,
+    _uncertainty,
+    build,
+    build_biosphere,
+    build_inventory,
+)
 from sentier_brightway.constants import BIOSPHERE_DB, INVENTORY_DB, RESIDUAL_DB
 from sentier_brightway.flows import load_bafu_flows, load_ef_flows
 from sentier_brightway.inventory import Inventory, load_inventory
@@ -202,3 +209,31 @@ def test_process_without_comment_column_has_no_comment_key(data_root):
     nodes = build_inventory(Inventory(inv.processes.drop(columns=["comment"]), inv.exchanges), {})
     assert "comment" not in nodes[(INVENTORY_DB, P1)]
     assert "comment" in build_inventory(inv, {})[(INVENTORY_DB, P1)]
+
+
+def test_orphan_exchange_row_is_an_error(data_root):
+    inv = _inventory(data_root)
+    ex = inv.exchanges.copy()
+    ex.loc[0, "process_id"] = "ghost-process-owner"
+    with pytest.raises(ValueError, match="ghost-process-owner"):
+        build_inventory(Inventory(inv.processes, ex), {})
+
+
+def test_unknown_flow_type_is_an_error(data_root):
+    inv = _inventory(data_root)
+    ex = inv.exchanges.copy()
+    ex.loc[0, "flow_type"] = "mystery"
+    with pytest.raises(ValueError, match="mystery"):
+        build_inventory(Inventory(inv.processes, ex), {})
+
+
+# --- biosphere units passed in, not recomputed from the bridge -----------------------------
+
+
+def test_build_biosphere_uses_the_units_it_is_given(data_root):
+    ef_flows = load_ef_flows(data_root)
+    methods = load_methods(data_root)
+    units = {E1: "custom-unit"}
+    nodes = build_biosphere(ef_flows, units, methods)
+    assert nodes[(BIOSPHERE_DB, E1)]["unit"] == "custom-unit"
+    assert nodes[(BIOSPHERE_DB, E2)]["unit"] == "kilogram"  # default when code has no unit

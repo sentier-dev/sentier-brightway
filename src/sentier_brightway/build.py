@@ -83,9 +83,12 @@ def _warn_unit_conflicts(conflicts: tuple[str, ...]) -> None:
 
 
 def build_biosphere(
-    ef_flows: pd.DataFrame, bridge: Mapping[str, BridgeEntry], methods: tuple[MethodSpec, ...]
+    ef_flows: pd.DataFrame, units: Mapping[str, str], methods: tuple[MethodSpec, ...]
 ) -> dict[Key, dict]:
-    """One node per EF flow known to vocab, to any CF table, or to any bridge target."""
+    """One node per EF flow known to vocab, to any CF table, or to any bridge target.
+
+    ``units`` is the first normalised target unit per EF code, as computed once by
+    ``_bridge_units`` in ``build()`` (conflict warnings are also ``build()``'s job)."""
     names: dict[str, str] = dict(zip(ef_flows["code"], ef_flows["name"]))
     cas: dict[str, str | None] = dict(zip(ef_flows["code"], ef_flows["cas_number"]))
     # CF context is more specific than the vocab compartment, so it takes priority; among
@@ -98,8 +101,6 @@ def build_biosphere(
             if ctx:
                 cf_categories.setdefault(code, ctx)
     categories = {**dict(zip(ef_flows["code"], ef_flows["categories"])), **cf_categories}
-    units, conflicts = _bridge_units(bridge)
-    _warn_unit_conflicts(conflicts)
     nodes = {}
     for code in sorted(set(names) | set(units)):
         cats = tuple(categories.get(code, ()))
@@ -209,10 +210,29 @@ def _link(pid: str, flow: str, flow_type: str, bridge: Mapping[str, BridgeEntry]
     )
 
 
+_VALID_FLOW_TYPES = frozenset({"production", "technosphere", "biosphere"})
+
+
 def _check_links(processes: pd.DataFrame, exchanges: pd.DataFrame) -> None:
-    """Fail fast on technosphere links to unknown processes and on processes whose exchange
-    rows lack a production row (a process with no rows at all is allowed and stays empty)."""
+    """Fail fast on: unknown ``flow_type`` values, exchange rows owned by an unknown process,
+    technosphere links to unknown processes, and processes whose exchange rows lack a
+    production row (a process with no rows at all is allowed and stays empty)."""
     known = set(processes["process_id"])
+
+    bad_types = sorted(set(exchanges["flow_type"]) - _VALID_FLOW_TYPES)
+    if bad_types:
+        raise ValueError(
+            f"{len(bad_types)} exchange rows have unknown flow_type values: {bad_types}"
+        )
+
+    orphans = exchanges[~exchanges["process_id"].isin(known)]
+    if not orphans.empty:
+        owners = sorted(set(orphans["process_id"]))
+        raise ValueError(
+            f"{len(orphans)} exchange rows reference unknown processes, e.g. "
+            f"{owners[:_MAX_EXAMPLES]}"
+        )
+
     tech = exchanges[exchanges["flow_type"] == "technosphere"]
     dangling = tech[~tech["flow"].isin(known)]
     if not dangling.empty:
@@ -327,9 +347,10 @@ def build(
 ) -> BuildResult:
     bio = inventory.exchanges[inventory.exchanges["flow_type"] == "biosphere"]
     unmapped = set(bio["flow"]) - set(bridge.keys())
-    _, conflicts = _bridge_units(bridge)
+    units, conflicts = _bridge_units(bridge)
+    _warn_unit_conflicts(conflicts)
     return BuildResult(
-        biosphere=build_biosphere(ef_flows, bridge, methods),
+        biosphere=build_biosphere(ef_flows, units, methods),
         residual=build_residual(unmapped, bafu_flows, inventory.exchanges),
         inventory=build_inventory(inventory, bridge),
         methods=_bind_methods(methods),

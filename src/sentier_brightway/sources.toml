@@ -67,28 +67,28 @@ ref = "396c7be12d774d23161895fbf1bc00adf72875ab"
 "data/elementary-flows/water-01.parquet" = "5bc9ccf19bb7f1a716181b6390503c0a3c7bd584f169e849abc0bec3eae8edef"
 "data/elementary-flows/water-02.parquet" = "9c43c2caa0db6d09adccc696bfdc56a6b86baf5d5632fa9f2b1b93dcef3be899"
 
-# sentier-methods: --ref override (main HEAD was 40cfb0d98c69d4cc5db39c2653b8301b52550c9d)
+# sentier-methods: --ref override (main HEAD was ba536459f320ec694ce778be6e632048a1c777dc)
 [[source]]
 name = "sentier-methods"
 repo = "sentier-dev/sentier-methods"
-ref = "40cfb0d98c69d4cc5db39c2653b8301b52550c9d"
+ref = "ba536459f320ec694ce778be6e632048a1c777dc"
 [source.files]
-"data/01-ef-3.1/characterization-factors.parquet" = "a536da0cc5e60eaca429199d0c897e1c3b62cecb76992f3bc2158c63d0c2739f"
+"data/01-ef-3.1/characterization-factors.parquet" = "6c2eaa4f47d403600ed0ca972b7b82894acba5b145464ad11eb5882f16df31cc"
 "data/01-ef-3.1/metadata.json" = "a8945b380ef6688dca64e9008d5ffd8a97b338d864d2facae39d1ee6cf74eb1e"
 "data/01-ef-3.1/methods.parquet" = "c2d14e9442ac186e52f6bb7e5e1406f93abf5892ff771c88f2f1fb6f50a66c97"
 
-# sentier-mappings: --ref override (main HEAD was e9118c583ef45f94cf27677f438b91430536d8b6)
+# sentier-mappings: --ref override (main HEAD was 5ba4acd92902945cfa98170fbfc75efe5e1454fd)
 [[source]]
 name = "sentier-mappings"
 repo = "sentier-dev/sentier-mappings"
-ref = "e9118c583ef45f94cf27677f438b91430536d8b6"
+ref = "5ba4acd92902945cfa98170fbfc75efe5e1454fd"
 [source.files]
 "data/bafu-2026-v1__ef-3.1/biosphere-1-curated.json" = "41695ca25a4034dcd6c8899cc2b9411ecfff21939321a14652d4c1cac9f0b441"
 "data/bafu-2026-v1__ef-3.1/biosphere-2-inferred.json" = "2fc246acc99d352b22e7f4a9a4e7aa806a617422a22f5e3d09b982ad5399d782"
-"data/bafu-2026-v1__ef-3.1/biosphere-3-matched.json" = "c340338c8394aecd8a6159b9ec581b19b389058d011c9e2af15c58026dca9a1b"
+"data/bafu-2026-v1__ef-3.1/biosphere-3-matched.json" = "baef5ad72e7bffaddb1b8f0e94bf6dee3a0d17a2cf08347b484debe5955244d6"
 "data/bafu-2026-v1__ef-3.1/biosphere-4-nomenclature.json" = "d10988c713ffe1114ee459b2003368401e1b5bbf2d2c960e5c36ff4f9764f238"
-"data/bafu-2026-v1__ef-3.1/coverage.json" = "5dbf994323167298f2f919a167c2b82d25a88382f156df1ab72bb3f8a0555feb"
+"data/bafu-2026-v1__ef-3.1/coverage.json" = "4b37998a6440e98c0cf57780eca245ecfd53c44d4b7f0daa5b4e4c3d53a8da1c"
 "data/bafu-2026-v1__ef-3.1/inference_review.json" = "3a034bf4f2a06353367eb4568c1e2bc7b74033afc7123f038d7dd3f8f2435cd1"
 "data/bafu-2026-v1__ef-3.1/land_use_review.json" = "f88a60915c89b55ebeaab96b742aafb9ea16f880fe7ee16e0ea5030bba417790"
-"data/bafu-2026-v1__ef-3.1/metadata.json" = "10ee68361fa1191f071fae284f42169b6b3cd66f61a4f7d28384dd7f825d9c27"
+"data/bafu-2026-v1__ef-3.1/metadata.json" = "c043bdbb3fd135c1bc132a40d8134dec515d278619518ea0178c3048ac9ec710"
 "data/bafu-2026-v1__ef-3.1/subcompartment_review.json" = "0b4df137f2cf0506eb120b08de99800a569e3cedab102eeba188b3e3abeb2fe5"

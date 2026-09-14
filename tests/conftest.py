@@ -133,8 +133,10 @@ def _write_inventory(root: Path) -> None:
     )
     exchanges["minimum"] = None
     exchanges["maximum"] = None
-    exchanges["minimum"] = exchanges["minimum"].astype("float64")
-    exchanges["maximum"] = exchanges["maximum"].astype("float64")
+    # The real minimum/maximum columns are all-null ``string`` dtype (not float64); match that
+    # so pd.NA, not float NaN, is what readers and builders actually see.
+    exchanges["minimum"] = exchanges["minimum"].astype("string")
+    exchanges["maximum"] = exchanges["maximum"].astype("string")
     processes.to_parquet(sector / "processes.parquet", index=False)
     exchanges.to_parquet(sector / "exchanges.parquet", index=False)
     (sector / "metadata.json").write_text(json.dumps({"sector": "electricity", "rank": 2}))

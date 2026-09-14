@@ -25,6 +25,12 @@ def test_data_root_error_names_expected_path_and_layout():
     assert isinstance(err, FileNotFoundError)
 
 
+def test_data_root_error_mentions_both_ways_to_set_the_root():
+    err = data_root_error("sector folders", Path("/tmp/x/sentier-inventory/data"))
+    assert "--data-root" in str(err)
+    assert "SENTIER_DATA_ROOT" in str(err)
+
+
 def test_codes_from_iris_strips_the_prefix():
     iri = pd.Series(["https://vocab.sentier.dev/flows/abc", "https://vocab.sentier.dev/flows/def"])
     codes = codes_from_iris(iri, Path("somewhere.parquet"))

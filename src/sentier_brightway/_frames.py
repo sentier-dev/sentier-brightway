@@ -30,7 +30,7 @@ def codes_from_iris(iri: pd.Series, path: Path) -> pd.Series:
 def data_root_error(kind: str, expected: Path) -> FileNotFoundError:
     """Build a consistent error for a data root that does not hold the expected ``kind``."""
     return FileNotFoundError(
-        f"no {kind} found; expected {expected}; --data-root must point at the folder that "
-        "contains the sentier-inventory, sentier-vocab, sentier-methods and sentier-mappings "
-        "checkouts"
+        f"no {kind} found; expected {expected}; --data-root (or $SENTIER_DATA_ROOT) must "
+        "point at the folder that contains the sentier-inventory, sentier-vocab, "
+        "sentier-methods and sentier-mappings checkouts"
     )

@@ -1,0 +1,17 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches-ignore: [main]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.10", "3.11"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv run --python ${{ matrix.python }} --extra testing pytest -q
+      - run: uv run --extra dev pre-commit run --all-files

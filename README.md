@@ -156,73 +156,9 @@ with the EF 3.1 columns of BAFU's own `BAFU-2026 v1 LCIA Results_corrected.xlsx`
 table's unit. Anchor: *Electricity, low voltage, production CH, at grid* gives 0.0320835 kg
 CO2 eq/kWh here, i.e. 0.008912093/MJ, against 0.008912093/MJ in the table (ratio 1.0000).
 
-Random sample of 200 processes (`--sample 200 --seed 0`, 2026-09-14), relative deviation
-|ours - ref| / |ref| per method:
-
-| Method | Median | Max | Rows > 1 % (of 200) |
-|---|---|---|---|
-| Acidification | 0.00 % | 0.02 % | 0 |
-| Climate change | 0.00 % | 0.03 % | 0 |
-| Climate change-Biogenic | 0.00 % | 0.02 % | 0 |
-| Climate change-Fossil | 0.00 % | 0.03 % | 0 |
-| Climate change-Land use and land use change | 0.00 % | 0.00 % | 0 |
-| EF-particulate Matter | 0.00 % | 0.26 % | 0 |
-| Eutrophication, freshwater | 0.00 % | 0.03 % | 0 |
-| Eutrophication, terrestrial | 0.00 % | 0.03 % | 0 |
-| Eutrophication marine | 0.12 % | 17.5 % | 19 |
-| Human toxicity, cancer_organics | 0.00 % | 0.34 % | 0 |
-| Human toxicity, non-cancer | 0.12 % | 14.1 % | 12 |
-| Human toxicity, non-cancer_inorganics | 0.15 % | 14.2 % | 12 |
-| Human toxicity, non-cancer_organics | 0.02 % | 74.8 % | 4 |
-| Ionising radiation, human health | 0.00 % | 99.9 % | 2 |
-| Ozone depletion | 0.00 % | 0.04 % | 0 |
-| Photochemical ozone formation - human health | 0.00 % | 0.04 % | 0 |
-| Resource use, minerals and metals | 0.00 % | 42.6 % | 1 |
-| Ecotoxicity, freshwater_inorganics | 1.05 % | 245 % | 102 |
-| Land use | 2.17 % | 583 % | 135 |
-| Resource use, fossils | 4.97 % | 6.37 % | 195 |
-| Human toxicity, cancer | 90.8 % | 1711 % | 199 |
-| Water use | 95.0 % | 6484 % | 199 |
-| Human toxicity, cancer_inorganics | 210 % | 12218 % | 200 |
-| Ecotoxicity, freshwater | 14517 % | 1.1e6 % | 200 |
-| Ecotoxicity, freshwater_organics | 3.7e5 % | 1.4e8 % * | 200 |
-
-\* one sampled process has 0 in the sheet and a non-zero score here; that row (inf) is
-excluded from the max, which is over the 199 finite rows.
-
-Eleven categories match to within 0.35 % on every sampled process: acidification, the four
-climate change methods, particulate matter, freshwater and terrestrial eutrophication,
-human toxicity cancer (organics), ozone depletion and photochemical ozone formation.
-Ionising radiation, minerals and metals, and human toxicity non-cancer (organics) have 1 to 4
-outliers each. Marine eutrophication (19 rows > 1 %, max 17.5 %) and the two other human
-toxicity non-cancer methods (12 rows, max 14 %) have not yet been traced.
-
-The large deviations have identified causes (verified with the sentier-mappings maintainers):
-
-- **Ecotoxicity (both methods)**: a sentier-vocab label defect. The EF flow with CAS
-  1120-01-0 (sodium hexadecyl sulphate, 93,308 CTUe/kg) carries the pref_label "sodium";
-  BAFU's *Sodium* has no CAS, so the name matcher picked it. Fix in progress upstream
-  (sentier-importers branch `fix/vocab-label-defects`); after it BAFU *Sodium* maps to EF
-  *Sodium* (CAS 7440-23-5, no factor) and ecotoxicity moves to parity.
-- **Human toxicity cancer (inorganics), and the cancer total**: not a mapping error. EF 3.1's
-  own flow *Chromium* (CAS 7440-47-3) carries the Cr(VI) factors (identical to
-  *Chromium(6+)*), and BAFU *Chromium* (same CAS) onto it is the faithful mapping. BAFU's
-  published results treat unspecified chromium as Cr(III); this is a method-implementation
-  choice that DdS will decide on. Until then human toxicity cancer (inorganics) is 2 to 3
-  times BAFU's figure by construction.
-- **Water use**: the EF table nets turbined water to zero through the *Water to turbine*
-  +42.95 / *Water from turbine* -42.95 pair. The mapping follows the table; both terms are
-  about 560 m3/kWh on the Swiss mix and cancel, so the large relative deviations sit on very
-  small net values. The category is numerically sensitive, not wrong by construction.
-- **Land use**: *To/From* transformation flows carry opposite-sign EF factors; deviations are
-  concentrated on agricultural processes and are under investigation (two example rows are
-  with the mappings maintainers).
-- **Resource use, fossils**: uniform +3 to +6 %, not yet traced (suspected energy-content
-  conversion on the resource side).
-
-These are data issues in sentier-mappings / sentier-vocab / sentier-methods, not in the
-Brightway install; the numbers will move with the next manifest pin.
-
+A full per-category comparison is in progress: the upstream data repositories
+(sentier-vocab, sentier-methods, sentier-mappings) are being corrected on findings from the
+first run, and the table will be published here once those corrections are pinned.
 
 ## Limitations (v0.1)
 

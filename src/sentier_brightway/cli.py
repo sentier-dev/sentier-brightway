@@ -1,4 +1,4 @@
-"""``sentier-brightway db|coverage``."""
+"""``sentier-brightway db|files|coverage``."""
 
 from __future__ import annotations
 
@@ -6,9 +6,12 @@ import argparse
 import logging
 import sys
 import warnings
+from pathlib import Path
 
-from . import coverage, import_bafu_db, render
+from . import coverage, import_bafu_db, import_bafu_files, render
 from .fetch import FetchError
+
+# files.ExistingOutputError subclasses RuntimeError, so the except tuple in main() covers it
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -25,6 +28,25 @@ def _parser() -> argparse.ArgumentParser:
         help="do not relink BAFU flows whose EF counterpart has no factor",
     )
 
+    fil = sub.add_parser(
+        "files", help="write registry parquet + mappings + datapackages to a folder (no bw2data)"
+    )
+    fil.add_argument("--out", required=True, help="output folder")
+    fil.add_argument("--overwrite", action="store_true", help="replace a non-empty output folder")
+    fil.add_argument(
+        "--no-datapackages",
+        action="store_true",
+        help="skip the bw_processing output (bw_package/)",
+    )
+    fil.add_argument(
+        "--data-root", default=None, help="local ~/dds-shaped folder (skips download)"
+    )
+    fil.add_argument(
+        "--skip-nomenclature",
+        action="store_true",
+        help="do not relink BAFU flows whose EF counterpart has no factor",
+    )
+
     cov = sub.add_parser("coverage", help="print linking coverage, no Brightway needed")
     cov.add_argument("--data-root", default=None)
     cov.add_argument("--skip-nomenclature", action="store_true")
@@ -35,6 +57,14 @@ def _run(args: argparse.Namespace):
     include = not args.skip_nomenclature
     if args.command == "coverage":
         return coverage(data_root=args.data_root, include_nomenclature=include)
+    if args.command == "files":
+        return import_bafu_files(
+            args.out,
+            data_root=args.data_root,
+            include_nomenclature=include,
+            datapackages=not args.no_datapackages,
+            overwrite=args.overwrite,
+        )
     return import_bafu_db(
         args.project,
         overwrite=args.overwrite,
@@ -71,4 +101,6 @@ def main(argv: list[str] | None = None) -> int:
         logger.removeHandler(handler)
         logger.setLevel(previous_level)
     print(render(cov))
+    if args.command == "files":
+        print(f"Files written to {Path(args.out).resolve()}")
     return 0

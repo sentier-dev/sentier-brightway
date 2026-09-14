@@ -13,7 +13,15 @@ from .methods import load_methods
 from .report import Coverage, render
 
 __version__ = "0.1.0"
-__all__ = ["import_bafu_db", "coverage", "assemble", "render", "Coverage", "BuildResult"]
+__all__ = [
+    "import_bafu_db",
+    "import_bafu_files",
+    "coverage",
+    "assemble",
+    "render",
+    "Coverage",
+    "BuildResult",
+]
 
 
 def assemble(
@@ -55,4 +63,37 @@ def import_bafu_db(
 
     result = assemble(data_root, include_nomenclature)
     write(result, project=project, overwrite=overwrite)
+    return result.coverage
+
+
+def import_bafu_files(
+    out_dir: Path | str,
+    data_root: Path | str | None = None,
+    include_nomenclature: bool = True,
+    datapackages: bool = True,
+    overwrite: bool = False,
+) -> Coverage:
+    """Write BAFU-2026 + EF 3.1 as plain files instead of a bw2data project.
+
+    ``out_dir`` receives ``registry/`` (parquet tables joined by integer ``bw_id``),
+    ``mappings/`` (the randonneur packages that were applied, verbatim), ``bw_package/``
+    (bw_processing datapackages for ``bw2calc.LCA`` with no bw2data project; skipped with
+    ``datapackages=False``) and ``manifest.json``. Read them back with
+    ``sentier_brightway.registry.load_registry`` and
+    ``sentier_brightway.datapackage.load_inventory_datapackage`` /
+    ``load_method_datapackage`` / ``score``.
+
+    A non-empty ``out_dir`` is refused unless ``overwrite=True``, which replaces it.
+    """
+    from .files import write_files
+
+    root = resolve_data_root(data_root)
+    result = assemble(root, include_nomenclature)
+    write_files(
+        result,
+        data_root=root,
+        out_dir=Path(out_dir),
+        datapackages=datapackages,
+        overwrite=overwrite,
+    )
     return result.coverage

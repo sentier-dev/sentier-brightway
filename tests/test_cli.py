@@ -2,7 +2,7 @@ import warnings
 
 import pytest
 
-from sentier_brightway import cli, coverage
+from sentier_brightway import cli, coverage, import_bafu_files
 
 
 def test_coverage_api_needs_no_brightway(data_root):
@@ -68,3 +68,41 @@ def test_cli_lets_other_user_warnings_through(data_root, monkeypatch):
     monkeypatch.setattr(cli, "_run", warn_then_run)
     with pytest.warns(UserWarning, match="bw2data says something"):
         assert cli.main(["coverage", "--data-root", str(data_root)]) == 0
+
+
+def test_import_bafu_files_api(data_root, tmp_path):
+    cov = import_bafu_files(tmp_path / "out", data_root=data_root)
+    assert (tmp_path / "out/registry/exchanges.parquet").is_file()
+    assert (tmp_path / "out/bw_package/bafu-2026/datapackage.json").is_file()
+    assert cov.processes == 2
+
+
+def test_cli_files_subcommand(data_root, tmp_path, capsys):
+    out_dir = tmp_path / "out"
+    rc = cli.main(
+        ["files", "--out", str(out_dir), "--data-root", str(data_root), "--no-datapackages"]
+    )
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert (out_dir / "manifest.json").is_file()
+    assert not (out_dir / "bw_package").exists()
+    assert "BAFU:2026" in out
+    assert f"Files written to {out_dir.resolve()}" in out
+
+
+def test_cli_files_requires_out(data_root):
+    with pytest.raises(SystemExit):
+        cli.main(["files", "--data-root", str(data_root)])
+
+
+def test_cli_files_refuses_non_empty_out_without_overwrite(data_root, tmp_path, capsys):
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    (out_dir / "stale.txt").write_text("x")
+    rc = cli.main(["files", "--out", str(out_dir), "--data-root", str(data_root)])
+    err = capsys.readouterr().err
+    assert rc == 2
+    assert "ERROR:" in err and "not empty" in err
+    rc = cli.main(["files", "--out", str(out_dir), "--data-root", str(data_root), "--overwrite"])
+    assert rc == 0
+    assert not (out_dir / "stale.txt").exists()

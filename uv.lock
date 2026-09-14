@@ -2330,6 +2330,10 @@ name = "sentier-brightway"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "bw-processing" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
+    { name = "numpy", version = "2.5.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "pandas", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "pandas", version = "3.0.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "platformdirs" },
@@ -2356,9 +2360,11 @@ testing = [
 requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = "==24.10.0" },
     { name = "build", marker = "extra == 'dev'" },
+    { name = "bw-processing", specifier = ">=1.0" },
     { name = "bw2calc", marker = "extra == 'testing'", specifier = ">=2.0" },
     { name = "bw2data", marker = "extra == 'testing'", specifier = ">=4.0" },
     { name = "isort", marker = "extra == 'dev'", specifier = "==5.13.2" },
+    { name = "numpy", specifier = ">=1.24" },
     { name = "pandas", specifier = ">=2.0" },
     { name = "platformdirs", specifier = ">=4" },
     { name = "pre-commit", marker = "extra == 'dev'" },

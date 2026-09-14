@@ -21,6 +21,8 @@ dependencies = [
     "pyarrow>=14",
     "platformdirs>=4",
     "tomli>=2; python_version < \"3.11\"",
+    "bw_processing>=1.0",
+    "numpy>=1.24",
 ]
 
 [project.urls]

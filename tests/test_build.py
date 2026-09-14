@@ -159,6 +159,10 @@ def test_node_type_from_first_category():
     assert _node_type(()) == "emission"
 
 
+def test_node_type_land_use_is_natural_resource():
+    assert _node_type(("Land use", "...")) == "natural resource"
+
+
 # --- fail fast and optional fields (frames edited in-test) ---------------------------------
 
 

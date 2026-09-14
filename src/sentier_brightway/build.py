@@ -22,7 +22,7 @@ Key = tuple[str, str]
 # stats_arrays ids whose support is positive: lognormal, bernoulli, weibull, gamma, beta.
 # A negative amount under one of these carries ``negative: True`` and loc = ln(|amount|).
 _POSITIVE_ONLY_DISTRIBUTIONS = frozenset({2, 6, 8, 9, 10})
-_RESOURCE_PREFIXES = ("resources", "natural resource", "raw")
+_RESOURCE_PREFIXES = ("resources", "natural resource", "raw", "land use")
 _MAX_EXAMPLES = 5
 
 

@@ -3,11 +3,11 @@
 # Refs are pinned commit SHAs (not `main`); regenerate with:
 #   uv run python scripts/pin_sources.py [--ref <name>=<sha> ...]
 
-# sentier-inventory: --ref override (main HEAD was e0a2d3fbb3bce6f599e85a6f0d3692881211c122)
+# sentier-inventory: --ref override (main HEAD was 0ca2a80f1cc8421ad54298824ec3f29a36106c69)
 [[source]]
 name = "sentier-inventory"
 repo = "sentier-dev/sentier-inventory"
-ref = "2334dfc86e8005bd632595c17e7f6182ec42cffb"
+ref = "0ca2a80f1cc8421ad54298824ec3f29a36106c69"
 [source.files]
 "data/01-agriculture/exchanges.parquet" = "87ac27b3dfd868ae75903150daa0f505469e5f47ef457b75b52a6f777af2031a"
 "data/01-agriculture/metadata.json" = "e3a024e692e0fccd661d699881a900030c722a1546374cd4eb455adb6ec80870"

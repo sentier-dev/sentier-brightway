@@ -44,3 +44,13 @@ def test_cli_db_round_trip(bw_project, data_root, capsys):
     rc = cli.main(["db", "--project", "cli-test", "--data-root", str(data_root)])
     assert rc == 2
     assert "overwrite" in capsys.readouterr().err
+
+
+@pytest.mark.bw
+def test_cli_db_shows_method_progress_on_stderr(bw_project, data_root, capsys):
+    rc = cli.main(["db", "--project", "cli-test", "--data-root", str(data_root)])
+    assert rc == 0
+    err = capsys.readouterr().err
+    assert "writing method 1/2" in err and "writing method 2/2" in err
+    cli.main(["db", "--project", "cli-test", "--data-root", str(data_root), "--overwrite"])
+    assert capsys.readouterr().err.count("writing method 1/2") == 1  # no duplicate handlers

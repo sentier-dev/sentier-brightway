@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 import warnings
 
@@ -42,8 +43,21 @@ def _run(args: argparse.Namespace):
     )
 
 
+def _progress_handler() -> logging.Handler:
+    """Progress lines (project creation, one per method) on stderr while a command runs."""
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setLevel(logging.INFO)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    return handler
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv if argv is not None else sys.argv[1:])
+    logger = logging.getLogger("sentier_brightway")
+    handler = _progress_handler()
+    previous_level = logger.level
+    logger.addHandler(handler)
+    logger.setLevel(min(logger.level or logging.INFO, logging.INFO))
     try:
         # the rendered report already carries the unit-conflict line; the API keeps warning
         with warnings.catch_warnings():
@@ -52,5 +66,8 @@ def main(argv: list[str] | None = None) -> int:
     except (FetchError, FileNotFoundError, ValueError, ImportError, RuntimeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
+    finally:
+        logger.removeHandler(handler)
+        logger.setLevel(previous_level)
     print(render(cov))
     return 0

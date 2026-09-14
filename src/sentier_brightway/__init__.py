@@ -46,6 +46,10 @@ def import_bafu_db(
     Run inside the Python environment where Brightway / Activity Browser is installed.
     ``include_nomenclature=False`` keeps BAFU flows whose EF counterpart has no factor in
     the residual database instead of relinking them.
+
+    With ``overwrite`` the previous install is removed before the new one is written; if
+    the write fails part-way, re-running with ``overwrite=True`` (CLI: ``--overwrite``) is
+    the recovery step.
     """
     from .writer import write  # bw2data import stays lazy
 

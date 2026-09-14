@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 
 bd = pytest.importorskip("bw2data")
@@ -63,3 +65,71 @@ def test_lca_score_matches_hand_computation(bw_project, result):
     assert score == pytest.approx(P1_CLIMATE_SCORE)  # 1.0 own CO2 + 2 kWh * 0.5 kg from P2
     ion = writer.score(act, IONISING_KEY)
     assert ion == pytest.approx(P1_IONISING_SCORE)  # 2 kWh * (1000 Bq * 0.001 kBq) * 3.0
+
+
+def _write_foreground(name: str = "fg") -> None:
+    """A user database with one activity consuming 1 kWh of P1."""
+    bd.Database(name).write(
+        {
+            (name, "a"): {
+                "name": "consumer",
+                "unit": "kilowatt hour",
+                "type": "process",
+                "exchanges": [
+                    {"input": (name, "a"), "type": "production", "amount": 1.0},
+                    {"input": (INVENTORY_DB, P1), "type": "technosphere", "amount": 1.0},
+                ],
+            }
+        }
+    )
+
+
+def test_overwrite_keeps_dependent_database_scorable(bw_project, result):
+    writer.write(result, project=bw_project, overwrite=False)
+    _write_foreground()
+    assert writer.score(writer.get_node("fg", "a"), CLIMATE_KEY) == pytest.approx(2.0)
+    writer.write(result, project=bw_project, overwrite=True)  # node ids change
+    assert writer.score(writer.get_node("fg", "a"), CLIMATE_KEY) == pytest.approx(2.0)
+
+
+def test_partial_failure_error_names_the_recovery_step(bw_project, result, monkeypatch):
+    class Boom:
+        def __init__(self, name):
+            self.name = name
+
+        def write(self, data):
+            raise ValueError("disk full")
+
+    monkeypatch.setattr(bd, "Database", Boom)
+    with pytest.raises(RuntimeError, match=r"failed part-way \(disk full\).*--overwrite") as info:
+        writer.write(result, project=bw_project, overwrite=False)
+    assert isinstance(info.value.__cause__, ValueError)
+    assert bw_project in str(info.value) and INVENTORY_DB in str(info.value)
+
+
+def test_score_unknown_method_raises_keyerror(bw_project, result):
+    writer.write(result, project=bw_project, overwrite=False)
+    act = writer.get_node(INVENTORY_DB, P1)
+    with pytest.raises(KeyError, match="not installed in project"):
+        writer.score(act, ("sentier", "EF v3.1", "Nope"))
+
+
+def test_overwrite_refreshes_method_metadata_and_removes_orphans(bw_project, result):
+    old = ("sentier", "EF v3.1", "Old")
+    bd.Method(old).register(unit="stale")
+    bd.Method(CLIMATE_KEY).register(unit="stale")
+    bd.Method(("other", "method")).register(unit="theirs")
+    writer.write(result, project=bw_project, overwrite=True)
+    assert old not in bd.methods  # orphan from an older install
+    assert bd.methods[CLIMATE_KEY]["unit"] == "kg CO2 eq"  # metadata refreshed
+    assert ("other", "method") in bd.methods  # not ours, untouched
+
+
+def test_write_logs_project_creation_and_method_progress(bw_project, result, caplog):
+    caplog.set_level(logging.INFO, logger="sentier_brightway.writer")
+    writer.write(result, project="fresh-project", overwrite=False)
+    assert "creating Brightway project 'fresh-project'" in caplog.text
+    assert "writing method 1/2" in caplog.text and "writing method 2/2" in caplog.text
+    caplog.clear()
+    writer.write(result, project="fresh-project", overwrite=True)
+    assert "creating Brightway project" not in caplog.text

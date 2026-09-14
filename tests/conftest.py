@@ -2,11 +2,22 @@
 
 from __future__ import annotations
 
+import atexit
+import inspect
 import json
+import os
+import shutil
+import tempfile
 from pathlib import Path
 
 import pandas as pd
 import pytest
+
+# Point bw2data at a throwaway directory before it can be imported anywhere (a bare
+# ``import bw2data`` already opens ``projects.db`` in the default location).
+_bw_tmp = tempfile.mkdtemp(prefix="sentier-bw-")
+os.environ.setdefault("BRIGHTWAY2_DIR", _bw_tmp)
+atexit.register(shutil.rmtree, _bw_tmp, True)
 
 P1 = "11111111-1111-1111-1111-111111111111"
 P2 = "22222222-2222-2222-2222-222222222222"
@@ -392,17 +403,21 @@ def data_root(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def bw_project(tmp_path: Path, monkeypatch) -> str:
+def bw_project(tmp_path: Path) -> str:
     """An isolated Brightway base directory under ``tmp_path``; never the user's real one.
 
     Only tests marked ``bw`` use it; they ``importorskip`` bw2data themselves first."""
     bd = pytest.importorskip("bw2data")
+    bd.config.is_test = True  # no tqdm bars
     base = tmp_path / "bw"
     base.mkdir()
     (base / "logs").mkdir()
-    monkeypatch.setenv("BRIGHTWAY2_DIR", str(base))
-    bd.projects.change_base_directories(base_dir=base, base_logs_dir=base / "logs")
     name = "sentier-brightway-test"
+    kwargs = {"base_dir": base, "base_logs_dir": base / "logs"}
+    accepted = inspect.signature(bd.projects.change_base_directories).parameters
+    if {"project_name", "update"} <= set(accepted):
+        kwargs.update(project_name=name, update=False)
+    bd.projects.change_base_directories(**kwargs)
     bd.projects.set_current(name)
     print(f"bw2data project dir: {bd.projects.dir}")
     assert Path(bd.projects.dir).is_relative_to(base)

@@ -18,6 +18,7 @@ datapackages see fixed amounts.
 from __future__ import annotations
 
 import re
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
@@ -109,15 +110,20 @@ def _write_method(rows: pd.DataFrame, method_id: str, folder: Path) -> None:
 
 def write_datapackages(registry: Registry, root: Path) -> DatapackagePaths:
     """Write the inventory datapackage and one per method under ``root`` (the ``bw_package``
-    folder). Raises ``ValueError`` before writing anything if an exchange references a
-    ``bw_id`` missing from the registry or a method has no characterization factors."""
+    folder). A rewrite replaces the whole ``bw_package`` content: the inventory and methods
+    folders are wiped first, so methods dropped from the registry do not linger on disk.
+    Raises ``ValueError`` before touching the disk if an exchange references a ``bw_id``
+    missing from the registry or a method has no characterization factors."""
     root = Path(root)
     _check_exchange_ids(registry)
     cfs = registry.characterization_factors
     method_ids = list(registry.methods["method_id"])
-    missing = [m for m in method_ids if m not in set(cfs["method_id"])]
+    known = set(cfs["method_id"])
+    missing = [m for m in method_ids if m not in known]
     if missing:
         raise ValueError(f"methods without characterization factors: {missing}")
+    shutil.rmtree(root / INVENTORY_DIR, ignore_errors=True)
+    shutil.rmtree(root / METHODS_DIR, ignore_errors=True)
     _write_inventory(registry, root / INVENTORY_DIR)
     methods = {}
     for method_id in method_ids:
@@ -127,12 +133,16 @@ def write_datapackages(registry: Registry, root: Path) -> DatapackagePaths:
     return DatapackagePaths(inventory=root / INVENTORY_DIR, methods=methods)
 
 
-def load_inventory_datapackage(out_dir: Path):
+def load_inventory_datapackage(out_dir: Path) -> bwp.Datapackage:
+    """``out_dir`` is the folder holding ``bw_package/``."""
     folder = Path(out_dir) / PACKAGE_DIR / INVENTORY_DIR
     return bwp.load_datapackage(bwp.generic_directory_filesystem(dirpath=folder))
 
 
-def load_method_datapackage(out_dir: Path, method_id: str):
+def load_method_datapackage(out_dir: Path, method_id: str) -> bwp.Datapackage:
+    """Located by folder, not by the datapackage ``name``: bw_processing normalises ``name``
+    (``ef-3.1__climate-change`` becomes ``ef-3.1_climate-change``); the folder and ``id``
+    keep the slug."""
     folder = Path(out_dir) / PACKAGE_DIR / METHODS_DIR / method_slug(method_id)
     if not folder.is_dir():
         raise KeyError(f"no datapackage for method {method_id!r} under {folder.parent}")
@@ -143,13 +153,14 @@ def score(out_dir: Path, process_code: str, method_id: str) -> float:
     """LCIA score of 1 unit of ``process_code`` with stock bw2calc; no bw2data project.
 
     ``out_dir`` is the folder holding ``registry/`` and ``bw_package/``."""
-    import bw2calc as bc
-
     registry = load_registry(Path(out_dir) / REGISTRY_DIR)
     matches = registry.processes[registry.processes["code"] == process_code]
     if matches.empty:
         raise KeyError(f"process code {process_code!r} not in registry")
     bw_id = int(matches["bw_id"].iloc[0])
+
+    import bw2calc as bc  # lazy: bw2calc is optional, only needed to actually score
+
     lca = bc.LCA(
         {bw_id: 1.0},
         data_objs=[

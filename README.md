@@ -27,6 +27,8 @@ Options:
 | `--overwrite` | `overwrite=True` | Replace a previous install in the same project. Also the recovery step after a partial failure. Other databases in the project that link to ours are reprocessed automatically. |
 | `--data-root DIR` | `data_root=DIR` | Read the four data repos from local clones under `DIR` instead of downloading. Resolution order: argument > `$SENTIER_DATA_ROOT` > verified download cache. |
 | `--skip-nomenclature` | `include_nomenclature=False` | Keep BAFU flows whose EF counterpart carries no factor in the residual database instead of relinking them (see coverage). |
+| `files --out DIR` | `import_bafu_files(DIR)` | Write plain files to `DIR` instead of a bw2data project (see below). `--overwrite` replaces a non-empty `DIR`; `--data-root` and `--skip-nomenclature` work as above. |
+| `files --no-datapackages` | `datapackages=False` | Skip the `bw_package/` bw_processing output; registry, mappings and manifest are still written. |
 
 `sentier-brightway coverage [--data-root DIR]` prints the linking report below without
 touching Brightway.
@@ -57,6 +59,53 @@ From Python, one score:
                if a["name"] == "Electricity, low voltage, production CH, at grid")
     score(act, ("sentier", "EF v3.1", "Climate change"))   # kg CO2 eq per kWh
 
+## Files instead of a database
+
+If you prefer plain files (pandas, your own tooling, or bw2calc without bw2data), the same
+build can be written to a folder instead of a project. No Brightway project is created and
+bw2data is not imported:
+
+    pip install git+https://github.com/sentier-dev/sentier-brightway   # PyPI release pending
+    sentier-brightway files --out ./bafu-2026-ef31
+    # or: from sentier_brightway import import_bafu_files; import_bafu_files("./bafu-2026-ef31")
+
+The folder contains:
+
+    registry/       processes, biosphere, exchanges, methods, characterization-factors (parquet)
+    mappings/       the randonneur packages that were applied, copied verbatim from sentier-mappings
+    bw_package/     bw_processing datapackages: bafu-2026/ (inventory) and methods/<slug>/ (one per method)
+    manifest.json   layout version, data pins, citation, coverage, row counts
+
+Every table in `registry/` is joined by an integer `bw_id`: a contiguous id starting at 1,
+processes first (sorted), then the EF biosphere flows, then the residual BAFU flows. The same
+ids are the row/column indices of the datapackages, so `registry/processes.parquet` is the
+lookup from a process `code` or `name` to the id you put into a demand vector.
+
+`bw_package/` is stock bw_processing, so stock bw2calc reads it with no bw2data project:
+
+    import bw2calc as bc
+    from sentier_brightway.datapackage import load_inventory_datapackage, load_method_datapackage
+    inventory = load_inventory_datapackage("./bafu-2026-ef31")
+    method = load_method_datapackage("./bafu-2026-ef31", "ef-3.1:climate-change")
+    lca = bc.LCA({bw_id: 1.0}, data_objs=[inventory, method])
+    lca.lci(); lca.lcia(); lca.score
+
+The two loaders are conveniences; `bw_processing.load_datapackage(bw_processing.FS(...))` on
+the folders works just as well. Technosphere inputs are stored as positive amounts with
+`flip_array` set, the usual bw_processing convention. The parquet side reads back with
+`sentier_brightway.registry.load_registry(folder)`; the shortest path to one score is:
+
+    from sentier_brightway.registry import load_registry
+    from sentier_brightway.datapackage import score
+    reg = load_registry("./bafu-2026-ef31/registry")
+    code = reg.processes[reg.processes.name.str.startswith("Electricity, low voltage, production CH")].code.iloc[0]
+    score("./bafu-2026-ef31", code, "ef-3.1:climate-change")   # 0.0320835 kg CO2 eq per kWh
+
+Both modes come from the same in-memory build (`sentier_brightway.assemble`), so scores are
+identical: the CH low-voltage electricity mix gives 0.0320835 kg CO2 eq/kWh in the bw2data
+project and 0.0320835 from the datapackages. The datapackages are static vectors only for
+now; uncertainty distributions are not exported yet.
+
 ## Current coverage
 
 Output of `sentier-brightway coverage` on 2026-09-14, data pinned in `sources.toml` to
@@ -79,7 +128,8 @@ move to main after the merge):
     Source: Life Cycle Inventory database of the Swiss Federal Administration, BAFU:2026.
 
 A full install (`db --data-root`, local clones) took 2 min 56 s; most of that is bw2data
-writing the methods.
+writing the methods. The file mode (`files --data-root`) writes the same content in about
+8 s to a 40 MB folder: `registry/` 21 MB, `bw_package/` 17 MB, `mappings/` 2.6 MB.
 
 ## Parity with BAFU's published LCIA results
 
@@ -182,7 +232,8 @@ Keep this citation in any work derived from the installed data.
     uv run --extra dev pre-commit run --all-files
     uv run python scripts/pin_sources.py   # re-pin after the data repos change
     uv run sentier-brightway coverage --data-root ~/dds   # read local clones
-    SENTIER_DATA_ROOT=~/dds uv run sentier-brightway coverage   # env var alternative to --data-root, honoured by db and import_bafu_db too
+    uv run sentier-brightway files --out /tmp/bafu-files --data-root ~/dds --overwrite   # file mode, no bw2data
+    SENTIER_DATA_ROOT=~/dds uv run sentier-brightway coverage   # env var alternative to --data-root, honoured by db, files and the import_bafu_* functions too
 
 Parity check against BAFU's published results (needs the LCIA results spreadsheet from
 `BAFU-2026 v1_LCIA Results_corrected.zip` and an installed project):

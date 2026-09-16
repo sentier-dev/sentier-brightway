@@ -1,5 +1,27 @@
 # sentier-brightway
 
+```mermaid
+flowchart TB
+    AB["User's Activity Browser"] -- GET --> DB
+
+    subgraph GH["GitHub"]
+        subgraph SB["sentier-brightway"]
+            IDB{"import_bafu_db()"} --> DB(["BAFU Brightway database<br/>+ mappings + EF"])
+            IFILES{"import_bafu_files()"} --> FILES(["randonneur files BAFU -> EF<br/>BAFU registry files<br/>EF registry files"])
+        end
+        METHODS["sentier-methods<br/>EF methods files"]
+        INVENTORY["sentier-inventory<br/>BAFU files"]
+        MAPPINGS["sentier-mappings<br/>BAFU -> EF mappings files"]
+    end
+
+    IDB -- PULL --> METHODS
+    IDB -- PULL --> INVENTORY
+    IDB -- PULL --> MAPPINGS
+    IFILES -- PULL --> METHODS
+    IFILES -- PULL --> INVENTORY
+    IFILES -- PULL --> MAPPINGS
+```
+
 One call installs the BAFU-2026 v1 life cycle inventory, an EF 3.1 biosphere and the 25 EF 3.1
 LCIA methods into your Brightway project, linked through the Sentier flow mappings. Open it in
 Activity Browser, build your foreground on top, compute with stock bw2calc.
@@ -124,6 +146,53 @@ identical: the CH low-voltage electricity mix gives 0.0320835 kg CO2 eq/kWh in t
 project and 0.0320835 from the datapackages. The datapackages are static vectors only for
 now; uncertainty distributions are not exported yet.
 
+## Backtest and dashboard
+
+`sentier-brightway backtest` scores all 11,947 processes for the 25 EF 3.1 categories from
+the file-mode datapackages with one adjoint solve per category (25 transposed solves of the
+technosphere matrix instead of 11,947 x 25 forward solves), cross-checks the result against
+the plain bw2calc loop, and compares every score with BAFU's own openLCA results from
+`BAFU-2026 v1 LCIA Results_corrected.xlsx`, per the table's unit (electricity per MJ, transport
+per km, and so on). The comparison uses the same guards as the Agribalyse dashboards: a zero
+reference gives no percentage, a near-zero floor (both values below 1 % of the category's
+median reference count as 0 %) and a fold cap (gaps above 10x are blanked and counted).
+
+    pip install "sentier-brightway[fast]"    # adds pypardiso; scipy's SuperLU is the fallback
+    sentier-brightway backtest --out dashboard --data-root ~/dds
+    sentier-brightway backtest --out dashboard --files ./bafu-2026-ef31   # reuse an export
+
+`--xlsx` defaults to `~/dds/sources/bafu-2026/BAFU-2026 v1_LCIA Results_corrected.zip` (the
+zip or the extracted xlsx both work). Without `--files` the command first writes a file-mode
+export into `<out>/files/`. About 5 s with an existing export, about 10 s including the
+export from local clones (the first run without `--data-root` adds the download).
+
+Written into `--out`:
+
+    emissions.csv        one row per process, the 25 scores in the table's unit
+    vs_bafu.csv          the same rows as signed percent difference vs BAFU (blank = guarded)
+    vs_bafu_meta.json    baseline, thresholds, suppressed cells, unmatched rows on both sides
+    run_report.json      timings, solver, counts and the export's data pins
+    backtest/*.parquet   scores, reference, diff_pct, summary (the full-precision record)
+    files/               the file-mode export (only when --files was not given)
+
+View it locally:
+
+    python -m http.server 8000 --directory dashboard
+    # open http://localhost:8000/backtest_dashboard.html
+
+The page has two tabs (percent difference vs BAFU, absolute scores) plus a Distributions
+view with one sorted chart per category; a blank cell means no or zero reference, or a gap
+above the fold cap. There is no flow drill-down in this version. `dashboard/` in the
+repository holds only the page and its vendored assets; everything the command writes there
+is gitignored. A hosted copy at dashboard.d-d-s.ch/bafu/ is access-restricted.
+
+Anchor: *Electricity, low voltage, production CH, at grid* scores 0.0320835 kg CO2 eq/kWh
+here, i.e. 0.008912093/MJ, against 0.008912093/MJ in BAFU's table (ratio 1.0000). On the
+2026-09-16 run every one of the 11,947 processes matched a table row; human toxicity cancer
+differs by a documented chromium convention (BAFU counts unspecified chromium as zero, EF's
+own flow carries the Cr(VI) factor), and the other categories agree with BAFU within a
+fraction of a percent at the median.
+
 ## Current coverage
 
 Output of `sentier-brightway coverage` on 2026-09-14, data pinned in `sources.toml` to
@@ -149,20 +218,10 @@ A full install (`db --data-root`, local clones) took 2 min 56 s; most of that is
 writing the methods. The file mode (`files --data-root`) writes the same content in about
 8 s to a 40 MB folder: `registry/` 21 MB, `bw_package/` 17 MB, `mappings/` 2.6 MB.
 
-## Parity with BAFU's published LCIA results
-
-`scripts/parity_bafu_lcia.py` scores installed processes with stock bw2calc and compares them
-with the EF 3.1 columns of BAFU's own `BAFU-2026 v1 LCIA Results_corrected.xlsx`, per the
-table's unit. Anchor: *Electricity, low voltage, production CH, at grid* gives 0.0320835 kg
-CO2 eq/kWh here, i.e. 0.008912093/MJ, against 0.008912093/MJ in the table (ratio 1.0000).
-
-A full per-category comparison is in progress: the upstream data repositories
-(sentier-vocab, sentier-methods, sentier-mappings) are being corrected on findings from the
-first run, and the table will be published here once those corrections are pinned.
-
 ## Limitations (v0.1)
 
-- Regionalized EF factors are not installed; global factors only.
+- Regionalized EF factors are not installed; global factors only. BAFU applies country
+  water-use factors, which is where the water-use tail of the backtest comes from.
 - EF flow units are taken from the mapping where known and default to kilogram otherwise
   (labels only; they do not affect results).
 - Only BAFU-2026 v1 and EF 3.1 are supported.
@@ -171,6 +230,7 @@ first run, and the table will be published here once those corrections are pinne
   characterization factor.
 - BAFU flows whose EF counterpart carries no factor are relinked by default (impact zero,
   reported in the coverage block); `--skip-nomenclature` keeps them in the residual database.
+- The backtest dashboard has no flow drill-down (v1).
 - Activity Browser: the package must be installed and run in the AB environment (it needs
   that environment's bw2data), and AB has to reload the project after an install.
 
@@ -189,9 +249,8 @@ Keep this citation in any work derived from the installed data.
     uv run sentier-brightway files --out /tmp/bafu-files --data-root ~/dds --overwrite   # file mode, no bw2data
     SENTIER_DATA_ROOT=~/dds uv run sentier-brightway coverage   # env var alternative to --data-root, honoured by db, files and the import_bafu_* functions too
 
-Parity check against BAFU's published results (needs the LCIA results spreadsheet from
-`BAFU-2026 v1_LCIA Results_corrected.zip` and an installed project):
+Backtest against BAFU's published results (needs the LCIA results zip or xlsx, see
+"Backtest and dashboard"):
 
-    uv run --extra testing --with openpyxl python scripts/parity_bafu_lcia.py \
-        --xlsx "BAFU-2026 v1 LCIA Results_corrected.xlsx" --project my-project \
-        --sample 200 --seed 0          # --all for every process
+    uv run --extra fast sentier-brightway backtest --out dashboard --data-root ~/dds   # ~10 s, pypardiso
+    uv run sentier-brightway backtest --out /tmp/bt --files /tmp/bafu-files              # reuse an export, scipy

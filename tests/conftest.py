@@ -478,3 +478,13 @@ def bafu_xlsx(tmp_path: Path) -> Path:
     path = tmp_path / "bafu_lcia.xlsx"
     wb.save(path)
     return path
+
+
+@pytest.fixture
+def files_export(data_root: Path, tmp_path: Path) -> Path:
+    """A file-mode export of the synthetic data root (registry + bw_package + manifest)."""
+    from sentier_brightway import import_bafu_files
+
+    out = tmp_path / "export"
+    import_bafu_files(out, data_root=data_root)
+    return out

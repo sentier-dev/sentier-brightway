@@ -31,6 +31,7 @@ __all__ = [
     "render",
     "Coverage",
     "BuildResult",
+    "backtest",
 ]
 
 
@@ -116,3 +117,7 @@ def import_bafu_files(
         include_nomenclature=include_nomenclature,
     )
     return result.coverage
+
+
+# backtest.emit reads __version__, so the subpackage is bound after it is defined
+from . import backtest  # noqa: E402

@@ -1,4 +1,4 @@
-exclude: '^docs/'
+exclude: '^(docs/|dashboard/.*\.js$)'
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
@@ -8,6 +8,7 @@ repos:
       - id: check-yaml
       - id: check-toml
       - id: check-added-large-files
+        args: ["--maxkb=4000"]
   - repo: https://github.com/pycqa/isort
     rev: 5.13.2
     hooks:

@@ -1,0 +1,106 @@
+"""Read BAFU's published 'LCIA Results' workbook into a frame keyed by (name, location)."""
+
+from __future__ import annotations
+
+import math
+import tempfile
+import zipfile
+from dataclasses import dataclass
+from pathlib import Path
+
+import pandas as pd
+
+from .categories import CATEGORIES, by_header, shorts
+
+SHEET = "BAFU_2026 v1"
+PRODUCT_COL, UNIT_COL = 0, 3
+EF_FAMILY = "EF 3.1"
+
+
+def demojibake(text: str) -> str:
+    """The table double-encodes non-ASCII names ('ä' arrives as 'ÃƒÂ¤'); undo that."""
+    for _ in range(2):
+        try:
+            fixed = text.encode("cp1252").decode("utf-8")
+        except UnicodeError:
+            return text
+        if fixed == text:
+            return text
+        text = fixed
+    return text
+
+
+def split_product(product: str) -> tuple[str, str]:
+    """``"<name> - <location>"`` split on the LAST separator (names may contain ' - ')."""
+    name, sep, location = product.rpartition(" - ")
+    if not sep:
+        raise ValueError(f"product without ' - <location>' suffix: {product!r}")
+    return name.strip(), location.strip()
+
+
+def _xlsx_path(path: Path, tmp: Path) -> Path:
+    if path.suffix.lower() == ".zip":
+        with zipfile.ZipFile(path) as zf:
+            members = [m for m in zf.namelist() if m.lower().endswith(".xlsx")]
+            if len(members) != 1:
+                raise ValueError(f"{path} must contain exactly one .xlsx, found {members}")
+            return Path(zf.extract(members[0], tmp))
+    return path
+
+
+@dataclass(frozen=True)
+class BafuReference:
+    frame: pd.DataFrame  # columns: name, location, unit, <25 shorts> (float, NaN when blank)
+    blank_cells: int
+    source: str
+
+    @classmethod
+    def from_path(cls, path: Path | str) -> "BafuReference":
+        import openpyxl
+
+        path = Path(path).expanduser()
+        if not path.is_file():
+            raise FileNotFoundError(f"BAFU reference not found: {path}")
+        with tempfile.TemporaryDirectory() as tmp:
+            xlsx = _xlsx_path(path, Path(tmp))
+            ws = openpyxl.load_workbook(xlsx, read_only=True)[SHEET]
+            rows = ws.iter_rows(values_only=True)
+            families, header = next(rows), next(rows)
+            columns = _ef_columns(families, header, path)
+            records, blanks, seen = [], 0, set()
+            for row in rows:
+                if not row[PRODUCT_COL]:
+                    continue
+                product = demojibake(str(row[PRODUCT_COL]).strip())
+                if product in seen:
+                    raise ValueError(f"duplicate product in {path}: {product!r}")
+                seen.add(product)
+                name, location = split_product(product)
+                record = {"name": name, "location": location, "unit": str(row[UNIT_COL]).strip()}
+                for short, i in columns.items():
+                    value = row[i] if i < len(row) else None
+                    if value is None:
+                        blanks += 1
+                        record[short] = math.nan
+                    else:
+                        record[short] = float(value)
+                records.append(record)
+        frame = pd.DataFrame(records, columns=["name", "location", "unit", *shorts()])
+        return cls(frame=frame, blank_cells=blanks, source=str(path))
+
+
+def _ef_columns(families, header, path: Path) -> dict[str, int]:
+    """short -> column index for the 25 EF 3.1 headers; every category must be present."""
+    if header[PRODUCT_COL] != "Product" or header[UNIT_COL] != "Unit":
+        raise ValueError(f"unexpected header layout in {path}: {list(header[:4])}")
+    family, found = None, {}
+    for i, (fam, name) in enumerate(zip(families, header)):
+        family = fam or family
+        if family == EF_FAMILY and name:
+            cat = by_header(name)
+            if cat is not None:
+                found[cat.short] = i
+    missing = [c.xlsx_header for c in CATEGORIES if c.short not in found]
+    if missing:
+        raise ValueError(f"{path}: EF 3.1 columns missing: {missing}")
+    return found

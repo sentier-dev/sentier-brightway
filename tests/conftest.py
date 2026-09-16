@@ -422,3 +422,59 @@ def bw_project(tmp_path: Path) -> str:
     print(f"bw2data project dir: {bd.projects.dir}")
     assert Path(bd.projects.dir).is_relative_to(base)
     return name
+
+
+BAFU_SHEET = "BAFU_2026 v1"
+# fixture references, per MJ for the two electricity processes (ours are per kWh):
+REF_P1_CLIMATE_PER_MJ = P1_CLIMATE_SCORE / 3.6
+REF_P2_CLIMATE_PER_MJ = 0.5 / 3.6
+REF_P1_IONISING_PER_MJ = P1_IONISING_SCORE / 3.6
+REF_P2_IONISING_PER_MJ = 3.0 / 3.6
+MOJIBAKE_NAME = "WÃƒÂ¤rme, ab Kessel - CH"  # decodes to "Wärme, ab Kessel - CH"
+
+
+@pytest.fixture
+def bafu_xlsx(tmp_path: Path) -> Path:
+    """A tiny BAFU 'LCIA Results' workbook: 2 header rows, all 25 EF headers, 3 processes."""
+    import openpyxl
+
+    from sentier_brightway.backtest.categories import CATEGORIES
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = BAFU_SHEET
+    families = [None, None, None, None, "IPCC 2021", "EF 3.1"] + [None] * 24
+    header = ["Product", "Category", "Sub-category", "Unit", "GWP 100 [kg CO2-eq]"] + [
+        c.xlsx_header for c in CATEGORIES
+    ]
+    ws.append(families)
+    ws.append(header)
+    idx = {c.short: 5 + i for i, c in enumerate(CATEGORIES)}
+
+    def row(product, unit, climate, ionising):
+        values = [product, "electricity", "grid", unit, climate] + [None] * 25
+        values[idx["climate"]] = climate
+        values[idx["radiation"]] = ionising
+        values[idx["acid"]] = 0.0  # zero reference -> blank pct
+        return values
+
+    ws.append(
+        row(
+            "Electricity, low voltage, at grid - CH",
+            "MJ",
+            REF_P1_CLIMATE_PER_MJ,
+            REF_P1_IONISING_PER_MJ,
+        )
+    )
+    ws.append(
+        row(
+            "Electricity, medium voltage, at grid - CH",
+            "MJ",
+            REF_P2_CLIMATE_PER_MJ,
+            REF_P2_IONISING_PER_MJ,
+        )
+    )
+    ws.append(row(MOJIBAKE_NAME, "MJ", 0.1, 0.2))  # not in our data -> unmatched_ref
+    path = tmp_path / "bafu_lcia.xlsx"
+    wb.save(path)
+    return path

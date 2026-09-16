@@ -25,6 +25,8 @@ dependencies = [
     "tomli>=2; python_version < \"3.11\"",
     "bw_processing>=1.0",
     "numpy>=1.24",
+    "openpyxl>=3.1",
+    "bw2calc>=2.0",
 ]
 
 [project.urls]
@@ -35,8 +37,9 @@ tracker = "https://github.com/sentier-dev/sentier-brightway/issues"
 sentier-brightway = "sentier_brightway.cli:main"
 
 [project.optional-dependencies]
-testing = ["pytest>=8", "pytest-cov", "bw2data>=4.0", "bw2calc>=2.0"]
+testing = ["pytest>=8", "pytest-cov", "bw2data>=4.0"]
 dev = ["black==24.10.0", "isort==5.13.2", "ruff==0.8.6", "pre-commit", "build"]
+fast = ["pypardiso>=0.4"]
 
 [tool.setuptools]
 package-dir = { "" = "src" }

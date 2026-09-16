@@ -245,15 +245,15 @@ const DATA_MODES = {
   bafu: {
     url: 'vs_bafu.csv',
     tab: 'Δ vs BAFU (openLCA)',
-    title: 'BAFU-2026 · Δ% vs BAFU\'S PUBLISHED EF 3.1 RESULTS (openLCA)',
-    sub: 'same inventory, two toolchains: sentier-brightway (bw2calc, Sentier EF 3.1 methods and BAFU→EF mappings) vs BAFU\'s openLCA run · "—" = no/zero reference value or >10× gap',
+    title: 'BAFU-2026 · Δ% vs BAFU EF 3.1 (openLCA)',
+    sub: 'bw2calc (Sentier EF 3.1 + BAFU→EF mappings) vs BAFU\'s openLCA · "—" = no/zero ref or >10× gap',
     pct: true,
     baseTag: 'openLCA',
   },
   abs: {
     url: 'emissions.csv',
     tab: 'Emissions',
-    title: 'BAFU-2026 · EF 3.1 SCORES BY IMPACT CATEGORY',
+    title: 'BAFU-2026 · EF 3.1 SCORES BY CATEGORY',
     sub: 'absolute EF 3.1 scores per reference unit of each process (table unit where a BAFU row exists)',
     pct: false,
     baseTag: '',
@@ -720,12 +720,12 @@ function App() {
           </div>
           {activeTab === 'backtest' && MODE.pct && (
             <div className="legend" style={{ marginTop: 8 }}>
-              <div className="legend-item"><div className="swatch swatch-orange" /><span>sentier-brightway &gt; openLCA (higher)</span></div>
-              <div className="legend-item"><div className="swatch swatch-blue" /><span>sentier-brightway &lt; openLCA (lower)</span></div>
+              <div className="legend-item"><div className="swatch swatch-orange" /><span>ours &gt; openLCA</span></div>
+              <div className="legend-item"><div className="swatch swatch-blue" /><span>ours &lt; openLCA</span></div>
               <div className="legend-item"><span>· dot = |Δ| &gt; {DOT_PCT}%</span></div>
-              <div className="legend-item"><span>· hover a cell / click a row for the matched BAFU row and its unit (join = name + location)</span></div>
-              <div className="legend-item"><span className="legend-info">i</span><span>impact-level note — click the column header (whole category)</span></div>
-              <div className="legend-item"><span className="legend-cellinfo">i</span><span>per-product note — hover the cell (|Δ| ≥ {OUTLIER_PCT}%)</span></div>
+              <div className="legend-item"><span>· hover cell / click row: BAFU row + unit</span></div>
+              <div className="legend-item"><span className="legend-info">i</span><span>impact note: header</span></div>
+              <div className="legend-item"><span className="legend-cellinfo">i</span><span>process note: hover cell (|Δ| ≥ {OUTLIER_PCT}%)</span></div>
             </div>
           )}
           {activeTab === 'backtest' && !MODE.pct && (
@@ -810,8 +810,8 @@ function App() {
                     >
                       <td className="name-col">
                         <span className="pcode">{product.code}</span>
-                        <span className="pname" title={MODE.pct && product.name_ref
-                          ? `${product.name}\nours · ${product.mapped_to}\n${MODE.baseTag} · ${product.name_ref} [${product.mapped_to_ref}]`
+                        <span className="pname" title={MODE.pct && refLabel(product)
+                          ? `${product.name}\nours · ${product.mapped_to}\n${MODE.baseTag} · ${refLabel(product)}`
                           : (product.mapped_to ? `${product.name}\n${product.mapped_to}` : product.name)
                         }>{product.name}</span>
                       </td>

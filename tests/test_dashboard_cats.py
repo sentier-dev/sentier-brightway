@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 from sentier_brightway.backtest.categories import as_js_cats
@@ -24,3 +25,13 @@ def test_html_has_no_drilldown_or_cross_version_code():
     ):
         assert needle not in text, needle
     assert "vs_bafu.csv" in text and "emissions.csv" in text
+
+
+def test_html_data_mode_urls_match_emit_constants():
+    from sentier_brightway.backtest.emit import EMISSIONS_CSV, VS_BAFU_CSV
+
+    text = HTML.read_text(encoding="utf-8")
+    start = text.index("const DATA_MODES = {")
+    end = text.index("\n};", start)
+    urls = set(re.findall(r"url: '([^']+)'", text[start:end]))
+    assert urls == {EMISSIONS_CSV, VS_BAFU_CSV}

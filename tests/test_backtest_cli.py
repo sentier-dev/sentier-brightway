@@ -1,6 +1,9 @@
 import json
+import subprocess
+import sys
 
 import pandas as pd
+import pytest
 
 from sentier_brightway import cli
 from sentier_brightway.backtest import FIXTURE_CATEGORIES, render_summary, run_backtest
@@ -99,8 +102,7 @@ def test_cli_backtest_hides_fixture_flag_from_help(capsys):
     assert "--fixture-categories" not in out and "--xlsx" in out
 
 
-def test_backtest_package_keeps_submodule_names_and_stays_cheap():
-    import sys
+def test_backtest_package_keeps_submodule_names():
     import types
 
     import sentier_brightway
@@ -109,4 +111,42 @@ def test_backtest_package_keeps_submodule_names_and_stays_cheap():
     assert sentier_brightway.backtest is backtest
     for name in ("categories", "compare", "emit", "reference"):
         assert isinstance(getattr(backtest, name), types.ModuleType), name
-    assert "bw2calc" not in sys.modules or "sentier_brightway.backtest.scorer" in sys.modules
+
+
+def test_import_sentier_brightway_does_not_load_bw2calc():
+    code = "import sentier_brightway, sys; print('bw2calc' in sys.modules)"
+    out = subprocess.run([sys.executable, "-c", code], check=True, capture_output=True, text=True)
+    assert out.stdout.strip() == "False"
+
+
+def test_run_backtest_missing_xlsx_creates_no_out_dir(files_export, tmp_path):
+    with pytest.raises(FileNotFoundError):
+        run_backtest(files_export, tmp_path / "nope.xlsx", tmp_path / "dash")
+    assert not (tmp_path / "dash").exists()
+
+
+def test_run_backtest_leaves_foreign_files_in_out_dir(files_export, bafu_xlsx, tmp_path):
+    out = tmp_path / "dash"
+    out.mkdir()
+    (out / "notes.txt").write_text("keep me")
+    run_backtest(files_export, bafu_xlsx, out, categories=FIXTURE_CATEGORIES)
+    assert (out / "notes.txt").read_text() == "keep me"
+    assert (out / "vs_bafu.csv").is_file()
+
+
+def test_cli_backtest_files_at_non_export_folder_is_an_error(bafu_xlsx, tmp_path, capsys):
+    (tmp_path / "junk").mkdir()
+    rc = cli.main(
+        [
+            "backtest",
+            "--out",
+            str(tmp_path / "dash"),
+            "--xlsx",
+            str(bafu_xlsx),
+            "--files",
+            str(tmp_path / "junk"),
+            "--fixture-categories",
+        ]
+    )
+    assert rc == 2 and "ERROR:" in capsys.readouterr().err
+    assert not (tmp_path / "dash").exists()

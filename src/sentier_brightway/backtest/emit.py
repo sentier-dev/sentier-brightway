@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from .. import __version__
+from .._version import __version__
 from .categories import Category
 from .compare import FOLD_CAP_PCT, MAPPED, NEAR_ZERO_FACTOR, UNMATCHED, Aligned, Compared
 

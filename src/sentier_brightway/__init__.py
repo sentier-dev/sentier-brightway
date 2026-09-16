@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-import importlib.metadata
 from pathlib import Path
 
+from . import backtest
+from ._version import __version__
 from .bridge import load_bridge
 from .build import BuildResult, build
 from .fetch import resolve_data_root
@@ -13,17 +14,8 @@ from .inventory import load_inventory
 from .methods import load_methods
 from .report import Coverage, render
 
-
-def _version() -> str:
-    """Installed distribution version; falls back for a source tree that is not installed."""
-    try:
-        return importlib.metadata.version("sentier-brightway")
-    except importlib.metadata.PackageNotFoundError:
-        return "0.1.0"
-
-
-__version__ = _version()
 __all__ = [
+    "__version__",
     "import_bafu_db",
     "import_bafu_files",
     "coverage",
@@ -117,7 +109,3 @@ def import_bafu_files(
         include_nomenclature=include_nomenclature,
     )
     return result.coverage
-
-
-# backtest.emit reads __version__, so the subpackage is bound after it is defined
-from . import backtest  # noqa: E402

@@ -193,4 +193,13 @@ def test_version_falls_back_when_not_installed(monkeypatch):
         raise importlib.metadata.PackageNotFoundError(name)
 
     monkeypatch.setattr(importlib.metadata, "version", missing)
-    assert sentier_brightway._version() == "0.1.0"
+    from sentier_brightway import _version
+
+    assert _version._version() == _version.FALLBACK_VERSION == "0.1.0"
+
+
+def test_version_module_is_the_single_source():
+    from sentier_brightway._version import __version__
+
+    assert sentier_brightway.__version__ == __version__
+    assert __version__ == importlib.metadata.version("sentier-brightway")

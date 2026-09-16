@@ -175,7 +175,7 @@ def align(
 def _pct(ours: pd.Series, ref: pd.Series, threshold: float) -> tuple[pd.Series, int, int]:
     """Percent difference with the guards: zero reference -> NaN; both sides below the
     threshold (reference non-zero) -> 0.0 (counted); |pct| above the fold cap -> NaN
-    (counted). NaN on either side stays NaN."""
+    (counted). NaN on either side stays NaN; a rounded -0.0 becomes 0.0."""
     with np.errstate(divide="ignore", invalid="ignore"):
         pct = (ours - ref) / ref.abs() * 100.0
     zero_ref = ref == 0
@@ -183,7 +183,7 @@ def _pct(ours: pd.Series, ref: pd.Series, threshold: float) -> tuple[pd.Series, 
     pct = pct.mask(zero_ref, np.nan).mask(near, 0.0)
     capped = pct.abs() > FOLD_CAP_PCT
     pct = pct.mask(capped, np.nan)
-    return pct.round(PCT_DECIMALS), int(near.sum()), int(capped.sum())
+    return pct.round(PCT_DECIMALS) + 0.0, int(near.sum()), int(capped.sum())  # no -0.0
 
 
 def _threshold(ref: pd.Series) -> float:

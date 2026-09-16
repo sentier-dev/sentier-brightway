@@ -9,14 +9,16 @@ from pathlib import Path
 import pandas as pd
 
 from .._version import __version__
-from .categories import Category
+from .categories import Category, shorts
 from .compare import FOLD_CAP_PCT, MAPPED, NEAR_ZERO_FACTOR, UNMATCHED, Aligned, Compared
 
 BASELINE = "BAFU-2026 v1 LCIA Results (openLCA, EF 3.1)"
 EMISSIONS_CSV = "emissions.csv"  # absolute scores; read by dashboard/backtest_dashboard.html
 VS_BAFU_CSV = "vs_bafu.csv"  # pct vs BAFU; read by the dashboard
 VS_BAFU_META = "vs_bafu_meta.json"
-LEAD = ("code", "name", "mapped_to", "type", "resolution")
+OUTLIER_REASONS = "outlier_reasons.json"  # per-category notes; header (i) + cell tooltip
+BACKTEST_DIR = "backtest"  # parquet bundle folder
+RUN_REPORT = "run_report.json"
 SCORE_FORMAT = "%.10g"  # absolute scores: plain or scientific, 10 significant digits
 PCT_FORMAT = "%.4f"  # pct columns are rounded to 4 decimals by compare()
 
@@ -86,6 +88,66 @@ def write_meta(compared: Compared, categories: tuple[Category, ...], path: Path)
         "location_aliases_applied": a.aliased_ref,
     }
     path.write_text(json.dumps(meta, indent=2, ensure_ascii=False))
+
+
+_CHROMIUM_NOTE = (
+    "BAFU treats unspecified 'Chromium' as Cr(III) (no cancer factor); EF 3.1's own "
+    "'Chromium' flow carries the Cr(VI) factors and sentier-mappings keeps the faithful "
+    "mapping by decision (2026-09-14), so this category is expected to be roughly 1.3x "
+    "(total) and 2x (inorganics) BAFU's."
+)
+# Documentation, not data: the known, accepted systematic deviations per category. The
+# page reads ``{short: {short, long, tag, not_a_bug, count, impact_level}}``; ``count: 0``
+# with ``impact_level`` renders as a library-wide note behind the header (i). Categories
+# without a note are simply absent.
+OUTLIER_NOTES: dict[str, dict] = {
+    "ht_c": {
+        "short": "Unspecified 'Chromium' scored as Cr(VI) (EF 3.1 flow), BAFU uses Cr(III).",
+        "long": _CHROMIUM_NOTE,
+        "tag": "chromium_speciation",
+        "not_a_bug": True,
+        "count": 0,
+        "impact_level": True,
+    },
+    "ht_c_inorg": {
+        "short": "Unspecified 'Chromium' scored as Cr(VI) (EF 3.1 flow), BAFU uses Cr(III).",
+        "long": _CHROMIUM_NOTE,
+        "tag": "chromium_speciation",
+        "not_a_bug": True,
+        "count": 0,
+        "impact_level": True,
+    },
+    "water": {
+        "short": "Global water-use factors only in v0.1; regionalised flows deviate.",
+        "long": (
+            "Regionalised EF water-use factors are not installed in v0.1 (global factors "
+            "only); AU/ID/CH resource flows deviate for that reason."
+        ),
+        "tag": "no_regionalised_factors",
+        "not_a_bug": True,
+        "count": 0,
+        "impact_level": True,
+    },
+    "radiation": {
+        "short": "Radon-222 [low pop., long-term] per Bq instead of per kBq on BAFU's side.",
+        "long": (
+            "Radon-222 [low pop., long-term] appears to be characterised per Bq instead of "
+            "per kBq on BAFU's side for a few processes."
+        ),
+        "tag": "reference_unit_scale",
+        "not_a_bug": True,
+        "count": 0,
+        "impact_level": True,
+    },
+}
+
+
+def write_outlier_reasons(path: Path) -> None:
+    """The fixed, code-owned category notes the dashboard shows behind the header (i)."""
+    unknown = set(OUTLIER_NOTES) - set(shorts())
+    if unknown:
+        raise ValueError(f"outlier notes for unknown categories: {sorted(unknown)}")
+    path.write_text(json.dumps(OUTLIER_NOTES, indent=2, ensure_ascii=False))
 
 
 def write_parquet_bundle(

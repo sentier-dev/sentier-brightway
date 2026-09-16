@@ -2,8 +2,8 @@
 
 ## 0.1.0 (unreleased)
 
-- README opens with an architecture schema (Mermaid): Activity Browser, the two importers, and
-  the three Sentier data repositories they pull from.
+- README opens with an architecture schema (Mermaid): Activity Browser, the two importers, the
+  three Sentier data repositories they pull from, and the backtest against BAFU's openLCA results.
 - Backtest module (`sentier_brightway.backtest`) and `sentier-brightway backtest` CLI: all
   11,947 processes x 25 EF 3.1 categories from the file-mode datapackages by adjoint solve,
   cross-checked against the plain bw2calc loop, compared with BAFU's published openLCA

@@ -147,3 +147,23 @@ def test_characterization_vector_skips_flows_absent_from_biosphere():
     )
     vector = scorer._characterization_vector(dp, lca)
     assert vector.tolist() == [1.5, 0.0, 3.0]
+
+
+def test_check_against_loop_builds_a_single_lca(files_export, monkeypatch):
+    import bw2calc as bc
+
+    from sentier_brightway.backtest import scorer
+
+    built = []
+    real = bc.LCA
+
+    class Counting(real):
+        def __init__(self, *args, **kwargs):
+            built.append(1)
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr(scorer.bc, "LCA", Counting)
+    scores = score_all(files_export, FIXTURE_CATS)
+    built.clear()
+    check_against_loop(files_export, scores, FIXTURE_CATS, n=2, seed=0)
+    assert len(built) == 1  # matrices built once; methods switched, demands re-solved

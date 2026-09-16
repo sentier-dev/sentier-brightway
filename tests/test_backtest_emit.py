@@ -76,6 +76,7 @@ def test_vs_csv_has_ref_columns_and_blank_for_nan(tmp_path):
     assert float(df["climate"].iloc[1]) == pytest.approx(-100 / 11, abs=1e-3)
     assert df["acid"].tolist() == ["0.0000", "0.0000"]  # equal, near-zero floored
     assert df["water"].tolist() == ["", ""]  # zero reference / no score -> blank
+    assert "-0.0000" not in path.read_text()
 
 
 def test_meta_and_run_report(tmp_path):
@@ -153,3 +154,13 @@ def test_meta_counts_location_aliases(tmp_path):
     meta = json.loads((tmp_path / "meta.json").read_text())
     assert meta["location_aliases_applied"] == 1
     assert meta["n_common"] == 2
+
+
+def test_vs_csv_writes_no_negative_zero(tmp_path):
+    scores = _scores().assign(climate=[2.0 * (1 - 1e-7), 0.5, 1.0])
+    compared = compare(align(scores, _reference(), CATS), CATS)
+    path = tmp_path / "vs_bafu.csv"
+    emit.write_vs_csv(compared, CATS, path)
+    text = path.read_text()
+    assert "-0.0000" not in text
+    assert _read(path)["climate"].iloc[0] == "0.0000"

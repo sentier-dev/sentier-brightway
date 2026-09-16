@@ -100,11 +100,10 @@ def run_backtest(
     """Score ``files_dir`` (a file-mode export) for ``categories``, spot-check ``check_n``
     processes against the plain bw2calc loop, compare with the BAFU table at ``xlsx`` and
     write ``emissions.csv``, ``vs_bafu.csv``, ``vs_bafu_meta.json``, ``backtest/*.parquet``
-    and ``run_report.json`` into ``out_dir``."""
+    and ``run_report.json`` into ``out_dir`` (created only once the inputs are read)."""
     from .scorer import check_against_loop, score_all  # bw2calc import stays lazy
 
     files_dir, out_dir = Path(files_dir), Path(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
     timings: dict[str, float] = {}
     started = time.perf_counter()
     reference = BafuReference.from_path(xlsx)
@@ -117,6 +116,7 @@ def run_backtest(
     aligned = align(scores.frame, reference.frame, categories)
     compared = _compare.compare(aligned, categories)
     summary = summarise(compared, categories)
+    out_dir.mkdir(parents=True, exist_ok=True)  # only once every input has been read
     write_emissions_csv(scores.frame, aligned, categories, out_dir / "emissions.csv")
     write_vs_csv(compared, categories, out_dir / "vs_bafu.csv")
     write_meta(compared, categories, out_dir / "vs_bafu_meta.json")

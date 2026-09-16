@@ -211,3 +211,10 @@ def test_align_strips_names_on_both_sides():
     assert aligned.frame["name"].tolist() == [LOW, MEDIUM, "Widget"]
     assert aligned.aliased_ref == 0
     assert aligned.unmatched_ref == (("Other", "DE"),)
+
+
+def test_pct_never_yields_negative_zero():
+    scores = _scores().assign(climate=[2.0 * (1 - 1e-7), 0.5, 1.0])  # rounds to -0.0 unguarded
+    compared = cmp.compare(cmp.align(scores, _reference(), CATS), CATS)
+    value = compared.frame["climate"].iloc[0]
+    assert value == 0.0 and math.copysign(1.0, value) == 1.0

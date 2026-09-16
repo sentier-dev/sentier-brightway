@@ -21,7 +21,6 @@ import pandas as pd
 import scipy.sparse as sp
 
 from ..datapackage import REGISTRY_DIR, load_inventory_datapackage, load_method_datapackage
-from ..datapackage import score as loop_score
 from ..registry import load_registry
 from .categories import Category
 
@@ -203,13 +202,31 @@ def check_against_loop(
         for cat in checked
     }
     rng = random.Random(seed)
-    codes = rng.sample(list(scores.frame["code"]), k=min(n, len(scores.frame)))
-    indexed = scores.frame.set_index("code")
-    for code in codes:
-        for cat in checked:
-            ours = float(indexed.loc[code, cat.short])
-            ref = loop_score(files_dir, code, cat.method_id)
-            if not math.isclose(ours, ref, rel_tol=rel, abs_tol=floors[cat.short]):
+    sample = scores.frame.sample(n=min(n, len(scores.frame)), random_state=rng.randrange(2**32))
+    bw_ids = [int(i) for i in sample["bw_id"]]
+    methods = [(cat, load_method_datapackage(files_dir, cat.method_id)) for cat in checked]
+    loop = _loop_scores(load_inventory_datapackage(files_dir), [dp for _, dp in methods], bw_ids)
+    for k, (cat, _) in enumerate(methods):
+        for code, ours, ref in zip(sample["code"], sample[cat.short], loop[:, k]):
+            if not math.isclose(float(ours), float(ref), rel_tol=rel, abs_tol=floors[cat.short]):
                 raise RuntimeError(
-                    f"adjoint score {ours!r} != bw2calc loop {ref!r} for {code} / {cat.method_id}"
+                    f"adjoint score {float(ours)!r} != bw2calc loop {float(ref)!r} "
+                    f"for {code} / {cat.method_id}"
                 )
+
+
+def _loop_scores(
+    inventory: bwp.Datapackage, methods: list[bwp.Datapackage], bw_ids: list[int]
+) -> np.ndarray:
+    """Plain ``bw2calc`` scores, shape ``(len(bw_ids), len(methods))``: one LCA whose
+    technosphere and biosphere are built once, one forward ``lci`` per demand and
+    ``switch_method`` (characterization matrix only) per method."""
+    lca = bc.LCA({bw_ids[0]: 1.0}, data_objs=[inventory, methods[0]])
+    out = np.empty((len(bw_ids), len(methods)))
+    for i, bw_id in enumerate(bw_ids):
+        lca.lci(demand={bw_id: 1.0})
+        for k, method in enumerate(methods):
+            lca.switch_method([method])
+            lca.lcia()
+            out[i, k] = lca.score
+    return out

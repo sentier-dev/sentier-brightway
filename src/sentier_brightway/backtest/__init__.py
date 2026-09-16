@@ -20,6 +20,9 @@ from . import compare as _compare  # the module; "compare" must stay the submodu
 from .categories import CATEGORIES, Category, by_short
 from .compare import Aligned, align, summarise
 from .emit import (
+    EMISSIONS_CSV,
+    VS_BAFU_CSV,
+    VS_BAFU_META,
     write_emissions_csv,
     write_meta,
     write_parquet_bundle,
@@ -117,9 +120,9 @@ def run_backtest(
     compared = _compare.compare(aligned, categories)
     summary = summarise(compared, categories)
     out_dir.mkdir(parents=True, exist_ok=True)  # only once every input has been read
-    write_emissions_csv(scores.frame, aligned, categories, out_dir / "emissions.csv")
-    write_vs_csv(compared, categories, out_dir / "vs_bafu.csv")
-    write_meta(compared, categories, out_dir / "vs_bafu_meta.json")
+    write_emissions_csv(scores.frame, aligned, categories, out_dir / EMISSIONS_CSV)
+    write_vs_csv(compared, categories, out_dir / VS_BAFU_CSV)
+    write_meta(compared, categories, out_dir / VS_BAFU_META)
     write_parquet_bundle(scores.frame, compared, summary, out_dir / "backtest")
     counts = _counts(scores, reference, aligned)
     write_run_report(

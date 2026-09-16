@@ -13,6 +13,9 @@ from .categories import Category
 from .compare import FOLD_CAP_PCT, MAPPED, NEAR_ZERO_FACTOR, UNMATCHED, Aligned, Compared
 
 BASELINE = "BAFU-2026 v1 LCIA Results (openLCA, EF 3.1)"
+EMISSIONS_CSV = "emissions.csv"  # absolute scores; read by dashboard/backtest_dashboard.html
+VS_BAFU_CSV = "vs_bafu.csv"  # pct vs BAFU; read by the dashboard
+VS_BAFU_META = "vs_bafu_meta.json"
 LEAD = ("code", "name", "mapped_to", "type", "resolution")
 SCORE_FORMAT = "%.10g"  # absolute scores: plain or scientific, 10 significant digits
 PCT_FORMAT = "%.4f"  # pct columns are rounded to 4 decimals by compare()

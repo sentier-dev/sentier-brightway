@@ -18,11 +18,21 @@ EF_FAMILY = "EF 3.1"
 
 
 def demojibake(text: str) -> str:
-    """The table double-encodes non-ASCII names ('ä' arrives as 'ÃƒÂ¤'); undo that."""
+    """The table double-encodes non-ASCII names ('ä' arrives as 'ÃƒÂ¤'); undo that.
+
+    Most bytes round-trip through cp1252, but some (e.g. the second byte of 'ÖBB' or 'ß')
+    only exist in latin-1, so fall back to it when cp1252 can't encode a character."""
     for _ in range(2):
         try:
-            fixed = text.encode("cp1252").decode("utf-8")
-        except UnicodeError:
+            raw = text.encode("cp1252")
+        except UnicodeEncodeError:
+            try:
+                raw = text.encode("latin-1")
+            except UnicodeEncodeError:
+                return text
+        try:
+            fixed = raw.decode("utf-8")
+        except UnicodeDecodeError:
             return text
         if fixed == text:
             return text
@@ -63,28 +73,43 @@ class BafuReference:
             raise FileNotFoundError(f"BAFU reference not found: {path}")
         with tempfile.TemporaryDirectory() as tmp:
             xlsx = _xlsx_path(path, Path(tmp))
-            ws = openpyxl.load_workbook(xlsx, read_only=True)[SHEET]
-            rows = ws.iter_rows(values_only=True)
-            families, header = next(rows), next(rows)
-            columns = _ef_columns(families, header, path)
-            records, blanks, seen = [], 0, set()
-            for row in rows:
-                if not row[PRODUCT_COL]:
-                    continue
-                product = demojibake(str(row[PRODUCT_COL]).strip())
-                if product in seen:
-                    raise ValueError(f"duplicate product in {path}: {product!r}")
-                seen.add(product)
-                name, location = split_product(product)
-                record = {"name": name, "location": location, "unit": str(row[UNIT_COL]).strip()}
-                for short, i in columns.items():
-                    value = row[i] if i < len(row) else None
-                    if value is None:
-                        blanks += 1
-                        record[short] = math.nan
-                    else:
-                        record[short] = float(value)
-                records.append(record)
+            wb = openpyxl.load_workbook(xlsx, read_only=True)
+            try:
+                if SHEET not in wb.sheetnames:
+                    raise ValueError(f"{path}: sheet {SHEET!r} not found, have {wb.sheetnames}")
+                ws = wb[SHEET]
+                rows = ws.iter_rows(values_only=True)
+                families, header = next(rows), next(rows)
+                columns = _ef_columns(families, header, path)
+                records, blanks, seen = [], 0, set()
+                for row in rows:
+                    if not row[PRODUCT_COL]:
+                        continue
+                    product = demojibake(str(row[PRODUCT_COL]).strip())
+                    if product in seen:
+                        raise ValueError(f"duplicate product in {path}: {product!r}")
+                    seen.add(product)
+                    name, location = split_product(product)
+                    unit = row[UNIT_COL]
+                    if unit is None:
+                        raise ValueError(f"{path}: blank unit for {product!r}")
+                    record = {"name": name, "location": location, "unit": str(unit).strip()}
+                    for short, i in columns.items():
+                        value = row[i] if i < len(row) else None
+                        if value is None:
+                            blanks += 1
+                            record[short] = math.nan
+                        else:
+                            try:
+                                record[short] = float(value)
+                            except (TypeError, ValueError):
+                                raise ValueError(
+                                    f"{path}: non-numeric score {value!r} for "
+                                    f"{product!r} / {short}"
+                                ) from None
+                    records.append(record)
+            finally:
+                wb.close()
         frame = pd.DataFrame(records, columns=["name", "location", "unit", *shorts()])
         return cls(frame=frame, blank_cells=blanks, source=str(path))
 

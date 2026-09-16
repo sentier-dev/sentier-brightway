@@ -159,7 +159,8 @@ def score(out_dir: Path, process_code: str, method_id: str) -> float:
         raise KeyError(f"process code {process_code!r} not in registry")
     bw_id = int(matches["bw_id"].iloc[0])
 
-    import bw2calc as bc  # lazy: bw2calc is optional, only needed to actually score
+    # bw2calc is a dependency, but imported here (lazily) to keep `import sentier_brightway` cheap
+    import bw2calc as bc
 
     lca = bc.LCA(
         {bw_id: 1.0},

@@ -3,11 +3,15 @@
 ```mermaid
 flowchart TB
     AB["User's Activity Browser"] -- GET --> DB
+    XLSX[("BAFU openLCA results<br/>LCIA Results_corrected.xlsx")] -- COMPARE --> BT
+    DASH(["backtest dashboard<br/>emissions.csv, vs_bafu.csv<br/>backtest_dashboard.html"]) -- VIEW --> BROWSER["User's web browser"]
 
     subgraph GH["GitHub"]
         subgraph SB["sentier-brightway"]
             IDB{"import_bafu_db()"} --> DB(["BAFU Brightway database<br/>+ mappings + EF"])
             IFILES{"import_bafu_files()"} --> FILES(["randonneur files BAFU -> EF<br/>BAFU registry files<br/>EF registry files"])
+            FILES -- SCORE --> BT{"run_backtest()"}
+            BT --> DASH
         end
         METHODS["sentier-methods<br/>EF methods files"]
         INVENTORY["sentier-inventory<br/>BAFU files"]

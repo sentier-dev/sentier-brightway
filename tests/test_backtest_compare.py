@@ -188,3 +188,26 @@ def test_summary_counts_unit_skipped_on_every_row():
     summary = cmp.summarise(compared, CATS)
     assert (summary["n_unit_skipped"] == 1).all()
     assert summary.set_index("short").loc["climate", "n_compared"] == 1
+
+
+def test_align_applies_reference_location_aliases():
+    scores = _scores().assign(location=["ERCOT", "Europe without Switzerland", "GLO"])
+    reference = _reference().assign(location=["US-ERCOT", "RER without CH", "DE"])
+    aligned = cmp.align(scores, reference, CATS)
+    assert aligned.frame["resolution"].tolist() == ["mapped", "mapped", "unmatched"]
+    assert aligned.frame["location"].tolist() == ["ERCOT", "Europe without Switzerland", "GLO"]
+    # the dashboard's "mapped_to" keeps the reference's own spelling
+    assert aligned.frame["ref_product"].iloc[0] == f"{LOW} - US-ERCOT"
+    assert aligned.aliased_ref == 2
+    assert aligned.unmatched_ref == (("Other", "DE"),)
+    assert cmp.LOCATION_ALIASES["US-SERC"] == "SERC"
+
+
+def test_align_strips_names_on_both_sides():
+    scores = _scores().assign(name=[LOW + " ", MEDIUM, "Widget"])
+    reference = _reference().assign(name=[LOW, MEDIUM + "  ", "Other"])
+    aligned = cmp.align(scores, reference, CATS)
+    assert aligned.frame["resolution"].tolist() == ["mapped", "mapped", "unmatched"]
+    assert aligned.frame["name"].tolist() == [LOW, MEDIUM, "Widget"]
+    assert aligned.aliased_ref == 0
+    assert aligned.unmatched_ref == (("Other", "DE"),)

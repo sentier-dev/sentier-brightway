@@ -90,6 +90,7 @@ def test_meta_and_run_report(tmp_path):
     assert meta["unmatched_ours"] == [["Widget", "GLO"]]
     assert meta["unmatched_ref"] == [["Other", "DE"]]
     assert meta["unit_skipped"] == {}
+    assert meta["location_aliases_applied"] == 0
     emit.write_run_report(
         tmp_path / "run_report.json",
         pins=[{"name": "x", "repo": "y", "ref": "z"}],
@@ -142,3 +143,13 @@ def test_parquet_bundle(tmp_path):
 
 def test_all_shorts_helper_matches_categories():
     assert len(shorts()) == 25
+
+
+def test_meta_counts_location_aliases(tmp_path):
+    scores = _scores().assign(location=["ERCOT", "CH", "GLO"])
+    reference = _reference().assign(location=["US-ERCOT", "CH", "DE"])
+    compared = compare(align(scores, reference, CATS), CATS)
+    emit.write_meta(compared, CATS, tmp_path / "meta.json")
+    meta = json.loads((tmp_path / "meta.json").read_text())
+    assert meta["location_aliases_applied"] == 1
+    assert meta["n_common"] == 2

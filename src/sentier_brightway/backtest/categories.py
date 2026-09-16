@@ -18,6 +18,10 @@ class Category:
     xlsx_header: str  # BAFU LCIA table header (whitespace-normalised)
 
 
+# Non-score columns of the scorer's frame, shared by scorer.py and compare.py (kept here so
+# compare.py never imports scorer.py, whose bw2calc import must stay lazy).
+META_COLUMNS = ("bw_id", "code", "name", "location", "unit")
+
 CATEGORIES: tuple[Category, ...] = (
     Category("climate", "ef-3.1:climate-change", "Climate Change", "Climate change [kg CO2 eq]"),
     Category(

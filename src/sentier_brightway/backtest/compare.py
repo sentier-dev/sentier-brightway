@@ -11,13 +11,12 @@ from typing import Mapping
 import numpy as np
 import pandas as pd
 
-from .categories import Category
+from .categories import META_COLUMNS, Category
 
 NEAR_ZERO_FACTOR = 0.01  # of the median |reference| per category
 FOLD_CAP_PCT = 1000.0
 PCT_DECIMALS = 4
 KEY = ("name", "location")
-META = ("bw_id", "code", "name", "location", "unit")
 MAPPED, UNMATCHED, UNIT_SKIPPED = "mapped", "unmatched", "unit_skipped"
 
 # BAFU table unit spelling -> Brightway spelling (as written by sentier_brightway.units)
@@ -76,7 +75,7 @@ def unit_factor(ours: str, table: str) -> float | None:
 
 @dataclass(frozen=True)
 class Aligned:
-    # META + ref_unit, ref_product, resolution, <short>_ours (table unit), <short>_ref
+    # META_COLUMNS + ref_unit, ref_product, resolution, <short>_ours (table unit), <short>_ref
     frame: pd.DataFrame
     unmatched_ref: tuple[tuple[str, str], ...]  # (name, location) of reference rows unused
     unit_skipped: Mapping[tuple[str, str], int]  # (our unit, table unit) -> count
@@ -132,10 +131,10 @@ def align(
     found but no conversion known); ``<short>_ours`` is NaN unless mapped. Neither input is
     modified."""
     shorts = [c.short for c in categories]
-    _check_columns(scores, (*META, *shorts), "scores")
+    _check_columns(scores, (*META_COLUMNS, *shorts), "scores")
     _check_columns(reference, (*KEY, "unit", *shorts), "reference")
     ref, aliased = _normalise_reference(reference, shorts)
-    ours = scores[[*META, *shorts]].assign(name=scores["name"].str.strip())
+    ours = scores[[*META_COLUMNS, *shorts]].assign(name=scores["name"].str.strip())
     try:
         merged = ours.merge(
             ref, on=list(KEY), how="left", suffixes=("_ours", "_ref"), validate="many_to_one"
@@ -147,7 +146,7 @@ def align(
     factor = pd.Series([f for _, f in resolved], index=merged.index, dtype=float)
     converted = {f"{s}_ours": merged[f"{s}_ours"] * factor for s in shorts}
     out = merged.assign(resolution=resolution, **converted)
-    order = [*META, "ref_unit", "ref_product", "resolution"]
+    order = [*META_COLUMNS, "ref_unit", "ref_product", "resolution"]
     order += [f"{s}_ours" for s in shorts] + [f"{s}_ref" for s in shorts]
     skipped: dict[tuple[str, str], int] = {}
     for (res, _), unit, ref_unit in zip(resolved, merged["unit"], merged["ref_unit"]):

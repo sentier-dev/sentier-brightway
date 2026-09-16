@@ -22,9 +22,8 @@ import scipy.sparse as sp
 
 from ..datapackage import REGISTRY_DIR, load_inventory_datapackage, load_method_datapackage
 from ..registry import load_registry
-from .categories import Category
+from .categories import META_COLUMNS, Category
 
-META_COLUMNS = ("bw_id", "code", "name", "location", "unit")
 CHARACTERIZATION = "characterization_matrix"
 RESIDUAL_TOL = 1e-8  # relative residual ||Aᵀx - w|| / ||w|| accepted per category
 LOOP_REL_TOL = 1e-6  # adjoint vs plain-loop relative tolerance

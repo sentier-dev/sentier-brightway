@@ -35,3 +35,17 @@ def test_html_data_mode_urls_match_emit_constants():
     end = text.index("\n};", start)
     urls = set(re.findall(r"url: '([^']+)'", text[start:end]))
     assert urls == {EMISSIONS_CSV, VS_BAFU_CSV}
+
+
+def test_html_reasons_url_matches_emit_constant():
+    from sentier_brightway.backtest.emit import OUTLIER_REASONS
+
+    text = HTML.read_text(encoding="utf-8")
+    assert re.search(r"const REASONS_URL = '([^']+)'", text).group(1) == OUTLIER_REASONS
+
+
+def test_html_distributions_view_is_pct_only():
+    text = HTML.read_text(encoding="utf-8")
+    tab = text.index("setActiveTab('distributions')")
+    assert "{MODE.pct && (" in text[tab - 200 : tab]
+    assert "activeTab === 'distributions' && MODE.pct && (" in text

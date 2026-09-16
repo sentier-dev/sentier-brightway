@@ -108,6 +108,26 @@ def test_meta_and_run_report(tmp_path):
     assert isinstance(report["sentier_brightway_version"], str)
 
 
+def test_outlier_reasons_is_valid_json_keyed_by_known_shorts(tmp_path):
+    path = tmp_path / emit.OUTLIER_REASONS
+    emit.write_outlier_reasons(path)
+    notes = json.loads(path.read_text(encoding="utf-8"))
+    assert set(notes) <= set(shorts())
+    assert {"ht_c", "ht_c_inorg", "water", "radiation"} <= set(notes)
+    assert "ht_c_org" not in notes
+    for note in notes.values():
+        assert note["short"] and note["long"] and note["impact_level"] is True
+        assert note["count"] == 0 and note["not_a_bug"] is True
+    assert "Cr(VI)" in notes["ht_c"]["long"] and notes["ht_c"] == notes["ht_c_inorg"]
+
+
+def test_outlier_reasons_rejects_unknown_short(tmp_path, monkeypatch):
+    monkeypatch.setitem(emit.OUTLIER_NOTES, "not_a_cat", {"short": "x"})
+    with pytest.raises(ValueError, match="not_a_cat"):
+        emit.write_outlier_reasons(tmp_path / "r.json")
+    assert not (tmp_path / "r.json").exists()
+
+
 def test_meta_lists_unit_skipped_pairs(tmp_path):
     scores = _scores().assign(unit=["kilowatt hour", "furlong", "kilogram"])
     compared = compare(align(scores, _reference(), CATS), CATS)

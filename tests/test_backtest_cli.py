@@ -23,10 +23,13 @@ def test_run_backtest_writes_everything(files_export, bafu_xlsx, tmp_path):
         "emissions.csv",
         "vs_bafu.csv",
         "vs_bafu_meta.json",
+        "outlier_reasons.json",
         "run_report.json",
         "backtest/summary.parquet",
     ):
         assert (tmp_path / "dash" / name).is_file()
+    reasons = json.loads((tmp_path / "dash" / "outlier_reasons.json").read_text())
+    assert "radiation" in reasons and "impact_level" in reasons["radiation"]
     vs = pd.read_csv(tmp_path / "dash" / "vs_bafu.csv", keep_default_na=False)
     assert abs(float(vs.set_index("code").loc[P1, "climate"])) < 1e-6  # ours/3.6 == ref per MJ
     assert result.summary.set_index("short").loc["climate", "n_compared"] == 2

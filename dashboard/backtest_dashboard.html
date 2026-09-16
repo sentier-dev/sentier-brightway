@@ -750,7 +750,11 @@ function App() {
               onClick={() => { setActiveTab('backtest'); setDataMode(key); }}
             >{m.tab}</button>
           ))}
-          <button className={'tab' + (activeTab === 'distributions' ? ' active' : '')} onClick={() => setActiveTab('distributions')}>Distributions</button>
+          {/* Distributions bin Δ% only: the button exists in the pct mode alone, and
+              picking a mode tab above always returns to the table view. */}
+          {MODE.pct && (
+            <button className={'tab' + (activeTab === 'distributions' ? ' active' : '')} onClick={() => setActiveTab('distributions')}>Distributions</button>
+          )}
         </div>
         {activeTab === 'backtest' && (
           <div className="header-stats">
@@ -871,7 +875,7 @@ function App() {
             )}
           </>
         )}
-        {activeTab === 'distributions' && (
+        {activeTab === 'distributions' && MODE.pct && (
           <DistributionsView
             products={PRODUCTS}
             loadState={loadState}

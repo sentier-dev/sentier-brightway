@@ -54,6 +54,9 @@ sentier_brightway = ["sources.toml"]
 testpaths = ["tests"]
 markers = ["bw: needs bw2data/bw2calc installed"]
 
+[tool.coverage.run]
+source = ["src"]
+
 [tool.black]
 line-length = 99
 target-version = ["py310"]

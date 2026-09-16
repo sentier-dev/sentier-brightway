@@ -80,6 +80,7 @@ def write_meta(compared: Compared, categories: tuple[Category, ...], path: Path)
         "unmatched_ours": _pairs(unmatched_ours),
         "unmatched_ref": [list(key) for key in a.unmatched_ref],
         "unit_skipped": {f"{ours} -> {table}": n for (ours, table), n in a.unit_skipped.items()},
+        "location_aliases_applied": a.aliased_ref,
     }
     path.write_text(json.dumps(meta, indent=2, ensure_ascii=False))
 

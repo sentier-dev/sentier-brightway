@@ -52,6 +52,20 @@ UNIT_FACTORS = MappingProxyType(
 )
 
 
+# BAFU table location spelling -> ours (the registry's); applied to the reference side only
+LOCATION_ALIASES = MappingProxyType(
+    {
+        "US-ERCOT": "ERCOT",
+        "US-FRCC": "FRCC",
+        "US-RFC": "RFC",
+        "US-SERC": "SERC",
+        "US-SPP": "SPP",
+        "US-ASCC": "ASCC",
+        "RER without CH": "Europe without Switzerland",
+    }
+)
+
+
 def unit_factor(ours: str, table: str) -> float | None:
     """Factor turning our per-``ours`` score into per-``table`` unit; None when unknown."""
     table_norm = TABLE_UNITS.get(table, table)
@@ -66,6 +80,7 @@ class Aligned:
     frame: pd.DataFrame
     unmatched_ref: tuple[tuple[str, str], ...]  # (name, location) of reference rows unused
     unit_skipped: Mapping[tuple[str, str], int]  # (our unit, table unit) -> count
+    aliased_ref: int = 0  # reference rows whose location went through LOCATION_ALIASES
 
 
 @dataclass(frozen=True)
@@ -92,20 +107,37 @@ def _check_columns(frame: pd.DataFrame, needed: tuple[str, ...], what: str) -> N
         raise ValueError(f"{what} frame lacks columns {missing}")
 
 
+def _normalise_reference(reference: pd.DataFrame, shorts: list[str]) -> tuple[pd.DataFrame, int]:
+    """Reference rows keyed the way our registry spells them: names stripped, locations
+    aliased. ``ref_product`` keeps the table's own spelling. Returns the frame and the
+    number of rows whose location was aliased."""
+    ref = reference[[*KEY, "unit", *shorts]].rename(columns={"unit": "ref_unit"})
+    location = ref["location"].map(lambda loc: LOCATION_ALIASES.get(loc, loc))
+    aliased = int((location != ref["location"]).sum())
+    ref = ref.assign(
+        ref_product=ref["name"] + " - " + ref["location"],
+        name=ref["name"].str.strip(),
+        location=location,
+    )
+    return ref, aliased
+
+
 def align(
     scores: pd.DataFrame, reference: pd.DataFrame, categories: tuple[Category, ...]
 ) -> Aligned:
     """Left-join ``reference`` onto ``scores`` by (name, location) and convert our scores to
-    the table's unit. Rows resolve to ``mapped``, ``unmatched`` (no reference row) or
-    ``unit_skipped`` (reference found but no conversion known); ``<short>_ours`` is NaN
-    unless mapped. Neither input is modified."""
+    the table's unit. Names are stripped on both sides and the reference's locations go
+    through ``LOCATION_ALIASES`` before the join (ours stay as in the registry). Rows
+    resolve to ``mapped``, ``unmatched`` (no reference row) or ``unit_skipped`` (reference
+    found but no conversion known); ``<short>_ours`` is NaN unless mapped. Neither input is
+    modified."""
     shorts = [c.short for c in categories]
     _check_columns(scores, (*META, *shorts), "scores")
     _check_columns(reference, (*KEY, "unit", *shorts), "reference")
-    ref = reference[[*KEY, "unit", *shorts]].rename(columns={"unit": "ref_unit"})
-    ref = ref.assign(ref_product=ref["name"] + " - " + ref["location"])
+    ref, aliased = _normalise_reference(reference, shorts)
+    ours = scores[[*META, *shorts]].assign(name=scores["name"].str.strip())
     try:
-        merged = scores[[*META, *shorts]].merge(
+        merged = ours.merge(
             ref, on=list(KEY), how="left", suffixes=("_ours", "_ref"), validate="many_to_one"
         )
     except pd.errors.MergeError as exc:
@@ -124,12 +156,19 @@ def align(
     found = out.loc[resolution != UNMATCHED, list(KEY)]
     found_keys = set(zip(found["name"], found["location"]))
     unmatched_ref = tuple(
-        sorted(k for k in zip(reference["name"], reference["location"]) if k not in found_keys)
+        sorted(
+            original
+            for original, key in zip(
+                zip(reference["name"], reference["location"]), zip(ref["name"], ref["location"])
+            )
+            if key not in found_keys
+        )
     )
     return Aligned(
         frame=out[order].reset_index(drop=True),
         unmatched_ref=unmatched_ref,
         unit_skipped=MappingProxyType(skipped),
+        aliased_ref=aliased,
     )
 
 

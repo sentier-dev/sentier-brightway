@@ -209,22 +209,48 @@
     .bar-fill { height: 100%; border-radius: 2px; }
     .bar-val { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; width: 72px; flex-shrink: 0; font-weight: 500; }
 
-    .dist-container { flex: 1; overflow-y: auto; padding: 10px 18px 16px; display: flex; flex-direction: column; gap: 10px; }
-    .dist-card { background: var(--surf); border: 1px solid var(--bord); border-radius: 4px; padding: 8px 14px 6px; }
-    .dist-hdr { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; margin-bottom: 2px; flex-wrap: wrap; }
-    .dist-label { font-size: 12px; font-weight: 600; color: var(--txt); }
-    .dist-stats { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--dim); display: flex; gap: 12px; flex-wrap: wrap; }
-    .dist-stats .below { color: #3a7a60; }
-    .dist-stats .above { color: #8a3e25; }
-    .dist-chart { position: relative; }
-    .dist-svg { width: 100%; height: 180px; display: block; }
-    .dist-hit { position: absolute; inset: 0; cursor: crosshair; }
-    .dist-marker { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); border: 1.5px solid var(--surf); transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 0 0 1px rgba(60,83,67,0.45); }
-    .dist-tip { position: absolute; transform: translate(-50%, calc(-100% - 9px)); pointer-events: none; z-index: 5; background: var(--surf); border: 1px solid var(--bord); border-radius: 4px; padding: 3px 8px; white-space: nowrap; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; box-shadow: 0 2px 10px rgba(60,83,67,0.18); display: flex; gap: 9px; align-items: baseline; }
-    .dist-tip-v { font-weight: 600; }
-    .dist-tip-c { color: var(--dim); }
-    .dist-svg .axis { fill: var(--dim); font-family: 'JetBrains Mono', monospace; font-size: 9px; }
-    .dist-svg .axis-zero { fill: var(--txt); }
+
+    /* Box-plot main view (inline SVG, fixed viewBox scaled to the panel width). */
+    .scroll { flex: 1; overflow: auto; }
+    .box-panel { background: var(--surf); border-bottom: 1px solid var(--bord); padding: 8px 18px 2px; }
+    .box-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--dim); margin-bottom: 2px; }
+    .box-bar label { text-transform: uppercase; letter-spacing: 0.06em; font-size: 8.5px; }
+    .box-bar select { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; padding: 3px 6px; border: 1px solid var(--bord); border-radius: 3px; background: var(--surf); color: var(--txt); max-width: 320px; }
+    .box-svg { width: 100%; max-height: 52vh; display: block; }
+    .box-svg .axis { fill: var(--dim); font-family: 'JetBrains Mono', monospace; font-size: 9.5px; }
+    .box-svg .axis-zero { fill: var(--txt); }
+    .box-svg .cat-label { fill: var(--txt); font-family: 'JetBrains Mono', monospace; font-size: 10px; cursor: pointer; }
+    .box-svg .cat-label:hover, .box-svg .cat-label.picked { fill: var(--accent); font-weight: 600; }
+    .box-svg .cat-n { fill: var(--dim); font-family: 'JetBrains Mono', monospace; font-size: 8px; }
+    .box-svg .hit { fill: transparent; cursor: pointer; }
+    .box-svg .hit:hover, .box-svg .hit.picked { fill: rgba(60, 83, 67, 0.07); }
+    .box-svg .info-icon circle { fill: var(--surf); stroke: var(--dim); stroke-width: 1; }
+    .box-svg .info-icon text { fill: var(--dim); font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 500; }
+    .box-svg .info-icon:hover circle, .box-svg .info-icon.active circle { stroke: var(--accent); fill: rgba(60, 83, 67, 0.12); }
+    .box-svg .info-icon:hover text, .box-svg .info-icon.active text { fill: var(--accent); }
+    .tt-stats { font-size: 10px; color: var(--txt); margin-top: 5px; border-top: 1px solid var(--bord); padding-top: 5px; display: grid; grid-template-columns: auto auto; column-gap: 12px; row-gap: 1px; }
+    .tt-stats span:nth-child(odd) { color: var(--dim); }
+    .header-dl { font-size: 9.5px; color: var(--dim); font-family: 'JetBrains Mono', monospace; margin-top: 5px; }
+    .header-dl a { color: var(--accent); text-decoration: none; }
+    .header-dl a:hover { text-decoration: underline; }
+    .stat-n.stat-txt { font-size: 13px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-top: 5px; }
+
+    /* Worst-200 drill-down table. */
+    .worst { background: var(--surf); border-top: 2px solid var(--accent); }
+    .worst-hdr { display: flex; align-items: baseline; gap: 14px; padding: 10px 18px 6px; flex-wrap: wrap; }
+    .worst-title { font-size: 12px; font-weight: 600; color: var(--txt); }
+    .worst-stats { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--dim); display: flex; gap: 12px; flex-wrap: wrap; }
+    .worst-note { font-size: 9.5px; color: var(--orange); font-style: italic; }
+    .worst-filter { margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 3px 8px; border: 1px solid var(--bord); border-radius: 3px; background: var(--surf); color: var(--txt); width: 230px; }
+    .worst-msg { padding: 8px 18px 12px; font-size: 11px; color: var(--dim); font-style: italic; }
+    .worst thead th { text-align: left; padding: 4px 8px 6px; white-space: nowrap; }
+    .worst thead th.num { text-align: right; }
+    .worst td { font-size: 10.5px; padding: 4px 8px; border-bottom: 1px solid var(--row-sep); white-space: nowrap; color: var(--txt); }
+    .worst td.rank { color: var(--dim); font-family: 'JetBrains Mono', monospace; font-size: 9px; }
+    .worst td.pname-cell { max-width: 460px; overflow: hidden; text-overflow: ellipsis; }
+    .worst td.num { font-family: 'JetBrains Mono', monospace; text-align: right; }
+    .worst td.pct { font-family: 'JetBrains Mono', monospace; text-align: right; font-size: 10px; min-width: 84px; position: relative; }
+    .worst td.pct .cell-info { top: 3px; left: 3px; }
 
   </style>
 </head>
@@ -234,31 +260,17 @@
 <script src="react-dom.min.js"></script>
 <script src="babel.min.js"></script>
 <script type="text/babel">
-const { useState, useMemo, useEffect } = React;
+const { useState, useMemo, useEffect, useRef } = React;
 
-// Main-tab data sources, written by `sentier-brightway backtest --out DIR`.
-// Both share the column layout code,name,mapped_to,type,resolution,
-// [name_ref,mapped_to_ref,] <25 method short IDs matching CATS[][0]>.
-//   bafu — vs_bafu.csv   (Δ% of our bw2calc score vs BAFU's openLCA score)
-//   abs  — emissions.csv (absolute EF 3.1 scores per reference unit)
-const DATA_MODES = {
-  bafu: {
-    url: 'vs_bafu.csv',
-    tab: 'Δ vs BAFU (openLCA)',
-    title: 'BAFU-2026 · Δ% vs BAFU EF 3.1 (openLCA)',
-    sub: 'bw2calc (Sentier EF 3.1 + BAFU→EF mappings) vs BAFU\'s openLCA · "—" = no/zero ref or >10× gap',
-    pct: true,
-    baseTag: 'openLCA',
-  },
-  abs: {
-    url: 'emissions.csv',
-    tab: 'Emissions',
-    title: 'BAFU-2026 · EF 3.1 SCORES BY CATEGORY',
-    sub: 'absolute EF 3.1 scores per reference unit of each process (table unit where a BAFU row exists)',
-    pct: false,
-    baseTag: '',
-  },
-};
+// Data files written by `sentier-brightway backtest --out DIR`.
+//   boxes.json   box-plot statistics per sector x category; the page's main view
+//   worst/       <short>.json: the 200 rows with the largest |Δ| per category
+//   vs_bafu.csv  Δ% of our bw2calc score vs BAFU's openLCA score per process;
+//                fetched lazily (first row click) for the per-process detail panel
+const BOXES_URL = 'boxes.json';
+const WORST_DIR = 'worst';
+const VS_BAFU_URL = 'vs_bafu.csv';
+const VS_BAFU_SIZE = '4.7 MB';
 const REASONS_URL = 'outlier_reasons.json';
 // Per-product × outlier-impact notes (authored by dds-build-product-reasons).
 // Keyed code → impact short-id → text. Shown above the impact-level note.
@@ -266,6 +278,7 @@ const PRODUCT_REASONS_URL = 'product_reasons.json';
 // Outlier threshold (percent): a product × impact cell at or above this |%diff|
 // surfaces its impact's plain-English explanation (cell ⓘ marker + tooltip reason).
 const OUTLIER_PCT = 30;
+const BASE_TAG = 'openLCA';
 
 function parseCSV(text) {
   const lines = text.trim().split(/\r?\n/);
@@ -322,20 +335,9 @@ const CATS = [
 ];
 // CATS-END
 
-
-function fmtAbs(v) {
-  if (v === '' || v == null || !Number.isFinite(v)) return '—';
-  if (Math.abs(v) >= 1000 || (Math.abs(v) > 0 && Math.abs(v) < 0.001)) return v.toExponential(3);
-  return v.toFixed(4);
-}
-
-// PRODUCTS loaded at runtime from DATA_MODES[dataMode].url. Columns in CSV must match
-// CATS[][0] short IDs above, in order.
-
-// SAT_PCT: |%diff| at which background hits max intensity. Larger = outliers
-// more visible (typical 10-50% diffs stay faint; 200-500% diffs saturate).
+// SAT_PCT: |%diff| at which the Δ cell background hits max intensity. Larger =
+// outliers more visible (typical 10-50% diffs stay faint; 200-500% saturate).
 const SAT_PCT = 500;
-const DOT_PCT = 300;
 function cellBg(v, sat = SAT_PCT) {
   if (!Number.isFinite(v)) return 'rgba(43,43,43,0.025)';
   const abs = Math.abs(v);
@@ -359,195 +361,18 @@ function valColor(v) {
   return '#555555';
 }
 
-
-
-function pickYTicks(yMax) {
-  const candidates = [10, 25, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
-  // Exclude ticks within ~20% of yMax to avoid label collision with the ±yMax edge label.
-  const inside = candidates.filter(c => c < yMax * 0.80);
-  // Keep last 2 — the coarsest ticks closest to yMax — so the chart never gets crowded.
-  // (With 3 ticks at large yMax the lowest tick is too close to the 0 line.)
-  return inside.slice(-2);
+// Absolute scores (ours / openLCA) in the worst list: 4 significant digits.
+function fmtNum(v) {
+  if (v == null || !Number.isFinite(v)) return '—';
+  return Number(v).toPrecision(4).replace(/\.?0+(e|$)/, '$1');
 }
 
-function DistributionCard({ id, label, sorted }) {
-  // Index of the histogram bin (frequency-polygon vertex / "dot") under the cursor.
-  const [hover, setHover] = useState(null);
-  const n = sorted.length;
-  const W = 1200, H = 180;
-  const padTop = 10, padBottom = 22, padLeft = 60, padRight = 14;
-  const innerW = W - padLeft - padRight;
-  const innerH = H - padTop - padBottom;
-
-  if (n === 0) {
-    return (
-      <div className="dist-card">
-        <div className="dist-hdr"><span className="dist-label">{label}</span><span className="dist-stats">no data</span></div>
-      </div>
-    );
-  }
-
-  const min = sorted[0];
-  const max = sorted[n - 1];
-  const median = n % 2 === 1 ? sorted[(n - 1) / 2] : (sorted[n / 2 - 1] + sorted[n / 2]) / 2;
-  const below = sorted.filter(v => v < 0).length;
-  const above = sorted.filter(v => v > 0).length;
-  const xMax = Math.max(Math.abs(min), Math.abs(max), 0.001);
-
-  // Histogram: symmetric value range [-xMax, +xMax] split into NBINS bins.
-  // X = bin centre (value, % diff). Y = number of processes in that bin.
-  const NBINS = 100;
-  const binWidth = (2 * xMax) / NBINS;
-  const counts = new Array(NBINS).fill(0);
-  for (const v of sorted) {
-    let idx = Math.floor((v + xMax) / binWidth);
-    if (idx < 0) idx = 0;
-    if (idx >= NBINS) idx = NBINS - 1;
-    counts[idx]++;
-  }
-  const maxCount = Math.max(1, ...counts);
-  const midX = padLeft + innerW / 2;
-  const baseY = padTop + innerH;
-
-  const pts = counts.map((c, i) => {
-    const centre = -xMax + (i + 0.5) * binWidth;
-    const x = padLeft + ((centre + xMax) / (2 * xMax)) * innerW;
-    const y = baseY - (c / maxCount) * innerH;
-    return { x, y, centre, count: c };
-  });
-
-  // Split bins at zero so negative bins fill blue (under-predict) and
-  // positive bins fill orange (over-predict).
-  const negPts = pts.filter(p => p.centre < 0);
-  const posPts = pts.filter(p => p.centre >= 0);
-
-  const fmtPath = (segments) => {
-    if (segments.length === 0) return '';
-    const first = segments[0];
-    const last = segments[segments.length - 1];
-    const inner = segments.map(p => `L${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
-    return `M${first.x.toFixed(1)} ${baseY.toFixed(1)} ${inner} L${last.x.toFixed(1)} ${baseY.toFixed(1)} Z`;
-  };
-
-  const negPath = fmtPath(negPts);
-  const posPath = fmtPath(posPts);
-  const linePts = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-
-  const ticks = pickYTicks(xMax);
-  const yTickCount = maxCount > 4 ? (Math.round(maxCount / 2)) : null;
-
-  return (
-    <div className="dist-card">
-      <div className="dist-hdr">
-        <span className="dist-label">{label}</span>
-        <span className="dist-stats">
-          <span>n={n}</span>
-          <span className="below">↓ {below.toLocaleString()} ({(below / n * 100).toFixed(1)}%)</span>
-          <span className="above">↑ {above.toLocaleString()} ({(above / n * 100).toFixed(1)}%)</span>
-          <span>median {fmtVal(median)}</span>
-          <span>min {fmtVal(min)}</span>
-          <span>max {fmtVal(max)}</span>
-        </span>
-      </div>
-      <div className="dist-chart">
-      <svg viewBox={`0 0 ${W} ${H}`} className="dist-svg" preserveAspectRatio="none">
-        {/* Vertical gridlines + x-axis tick labels (value ticks). */}
-        {ticks.map(t => {
-          const xPos = midX + (t / xMax) * (innerW / 2);
-          const xNeg = midX - (t / xMax) * (innerW / 2);
-          return (
-            <g key={t}>
-              <line x1={xPos} y1={padTop} x2={xPos} y2={baseY} stroke="rgba(43,43,43,0.06)" strokeDasharray="2 3" vectorEffect="non-scaling-stroke"/>
-              <line x1={xNeg} y1={padTop} x2={xNeg} y2={baseY} stroke="rgba(43,43,43,0.06)" strokeDasharray="2 3" vectorEffect="non-scaling-stroke"/>
-              <text x={xPos} y={H - 6} textAnchor="middle" className="axis">+{t}%</text>
-              <text x={xNeg} y={H - 6} textAnchor="middle" className="axis">-{t}%</text>
-            </g>
-          );
-        })}
-        {/* Edge value labels at the symmetric ±xMax extremes. */}
-        <text x={padLeft} y={H - 6} textAnchor="start" className="axis">-{xMax.toFixed(xMax >= 100 ? 0 : xMax >= 10 ? 1 : 2)}%</text>
-        <text x={W - padRight} y={H - 6} textAnchor="end" className="axis">+{xMax.toFixed(xMax >= 100 ? 0 : xMax >= 10 ? 1 : 2)}%</text>
-        {/* Y-axis count labels: 0 baseline and max bin count. */}
-        <text x={padLeft - 6} y={padTop + 8} textAnchor="end" className="axis">{maxCount.toLocaleString()}</text>
-        {yTickCount !== null && (
-          <g>
-            <line x1={padLeft} y1={baseY - innerH / 2} x2={W - padRight} y2={baseY - innerH / 2} stroke="rgba(43,43,43,0.06)" strokeDasharray="2 3" vectorEffect="non-scaling-stroke"/>
-            <text x={padLeft - 6} y={baseY - innerH / 2 + 3} textAnchor="end" className="axis">{yTickCount.toLocaleString()}</text>
-          </g>
-        )}
-        <text x={padLeft - 6} y={baseY + 3} textAnchor="end" className="axis axis-zero">0</text>
-        {/* Baseline (horizontal) + zero line (vertical). */}
-        <line x1={padLeft} y1={baseY} x2={W - padRight} y2={baseY} stroke="rgba(43,43,43,0.45)" vectorEffect="non-scaling-stroke"/>
-        <line x1={midX} y1={padTop} x2={midX} y2={baseY} stroke="rgba(43,43,43,0.45)" vectorEffect="non-scaling-stroke"/>
-        <text x={midX} y={H - 6} textAnchor="middle" className="axis axis-zero">0</text>
-        {/* Filled histogram areas. */}
-        <path d={negPath} fill="rgba(132,174,153,0.22)"/>
-        <path d={posPath} fill="rgba(193,98,63,0.22)"/>
-        {/* Outline (frequency polygon). */}
-        <polyline points={linePts} fill="none" stroke="var(--accent)" strokeWidth="1.2" strokeLinejoin="round" vectorEffect="non-scaling-stroke"/>
-      </svg>
-      {/* Hover layer: maps the cursor to the nearest bin vertex and reads out its
-          % diff (x) and product count (y). preserveAspectRatio="none" keeps the
-          SVG y-scale 1:1 (height = H), so dots project to left=x/W·100%, top=y px. */}
-      <div
-        className="dist-hit"
-        onMouseMove={e => {
-          const rect = e.currentTarget.getBoundingClientRect();
-          const xv = ((e.clientX - rect.left) / rect.width) * W;
-          let best = 0, bestD = Infinity;
-          for (let i = 0; i < pts.length; i++) {
-            const d = Math.abs(pts[i].x - xv);
-            if (d < bestD) { bestD = d; best = i; }
-          }
-          setHover(best);
-        }}
-        onMouseLeave={() => setHover(null)}
-      />
-      {hover !== null && pts[hover] && (
-        <>
-          <div className="dist-marker" style={{ left: `${(pts[hover].x / W) * 100}%`, top: `${pts[hover].y}px` }} />
-          <div className="dist-tip" style={{ left: `${(pts[hover].x / W) * 100}%`, top: `${Math.max(pts[hover].y, 22)}px` }}>
-            <span className="dist-tip-v" style={{ color: valColor(pts[hover].centre) }}>{fmtVal(pts[hover].centre)}</span>
-            <span className="dist-tip-c">{pts[hover].count.toLocaleString()} {pts[hover].count === 1 ? 'process' : 'processes'}</span>
-          </div>
-        </>
-      )}
-      </div>
-    </div>
-  );
+function fmtInt(n) {
+  return n == null ? '—' : n.toLocaleString();
 }
 
-function DistributionsView({ products, loadState, loadError, url }) {
-  const charts = useMemo(() => {
-    if (products.length === 0) return [];
-    return CATS.map(([id, label], ci) => {
-      const values = [];
-      for (const p of products) {
-        const v = p.vals[ci];
-        if (Number.isFinite(v)) values.push(v);
-      }
-      values.sort((a, b) => a - b);
-      return { id, label, sorted: values };
-    });
-  }, [products]);
-
-  if (loadState === 'loading') {
-    return <div style={{ padding: '14px 22px', color: 'var(--dim)', fontFamily: 'Nunito, system-ui, sans-serif', fontSize: 12 }}>Loading {url}…</div>;
-  }
-  if (loadState === 'error') {
-    return (
-      <div style={{ padding: '14px 22px', color: '#8a3e25', fontFamily: 'Nunito, system-ui, sans-serif', fontSize: 12 }}>
-        Failed to load {url}: {loadError}
-      </div>
-    );
-  }
-
-  return (
-    <div className="dist-container">
-      {charts.map(c => <DistributionCard key={c.id} {...c} />)}
-    </div>
-  );
-}
+const DOT_POS = 'rgba(193,98,63,0.6)';   // ours > openLCA
+const DOT_NEG = 'rgba(132,174,153,0.6)'; // ours < openLCA
 
 // "<openLCA product name> [<unit>]" for a vs_bafu row; '' when unmatched.
 function refLabel(product) {
@@ -555,60 +380,274 @@ function refLabel(product) {
   return product.mapped_to_ref ? `${product.name_ref} [${product.mapped_to_ref}]` : product.name_ref;
 }
 
+// Symmetric log ("symlog") y axis: linear near zero, log10 decades beyond ±10 %.
+// compare() folds |Δ| at 1000 %, so ±FOLD_CAP is the full range.
+const FOLD_CAP = 1000;
+function symlog(v) { return Math.sign(v) * Math.log10(1 + Math.abs(v) / 10); }
+const Y_TICKS = [-1000, -100, -10, -1, 0, 1, 10, 100, 1000];
+// ±1 % sits 2 % of the half-range from zero: gridline only, no label.
+const Y_UNLABELLED = new Set([-1, 1]);
+const SYM_MAX = symlog(FOLD_CAP);
+
+// Box-plot geometry (viewBox units).
+const BX = { W: 1200, H: 440, padTop: 26, padBottom: 150, padLeft: 58, padRight: 12, boxW: 22 };
+
+function sectorLabel(sector) {
+  return sector === 'all' ? 'all sectors' : sector;
+}
+
+// Deterministic horizontal jitter so stacked outlier dots do not collapse into
+// one line: spreads index i over 13 positions inside the box width.
+function jitter(i, halfSpan) {
+  return (((i * 7919) % 13) - 6) / 6 * halfSpan;
+}
+
+function BoxPlotView({ boxes, sector, reasons, popover, picked, onInfo, onPick, onHover }) {
+  const { W, H, padTop, padBottom, padLeft, padRight, boxW } = BX;
+  const innerW = W - padLeft - padRight;
+  const innerH = H - padTop - padBottom;
+  const slotW = innerW / CATS.length;
+  const yOf = (v) => {
+    const s = Math.max(-SYM_MAX, Math.min(SYM_MAX, symlog(v)));
+    return padTop + ((SYM_MAX - s) / (2 * SYM_MAX)) * innerH;
+  };
+  const yBottom = padTop + innerH;
+  const yLabel = yBottom + 12;
+  const perSector = (boxes && boxes.boxes[sector]) || (boxes && boxes.boxes.all) || {};
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="box-svg" role="img" aria-label="Δ% box plots per impact category">
+      {/* Y axis: symlog gridlines and tick labels. */}
+      {Y_TICKS.map(t => {
+        const y = yOf(t);
+        const zero = t === 0;
+        return (
+          <g key={t}>
+            <line x1={padLeft} y1={y} x2={W - padRight} y2={y}
+                  stroke={zero ? 'rgba(43,43,43,0.55)' : 'rgba(43,43,43,0.07)'}
+                  strokeDasharray={zero ? '3 3' : undefined} vectorEffect="non-scaling-stroke" />
+            {!Y_UNLABELLED.has(t) && (
+              <text x={padLeft - 6} y={y + 3} textAnchor="end" className={'axis' + (zero ? ' axis-zero' : '')}>
+                {t > 0 ? '+' : ''}{t}%
+              </text>
+            )}
+          </g>
+        );
+      })}
+      <line x1={padLeft} y1={padTop} x2={padLeft} y2={yBottom} stroke="rgba(43,43,43,0.25)" vectorEffect="non-scaling-stroke" />
+
+      {CATS.map(([id, label], ci) => {
+        const b = perSector[id];
+        const cx = padLeft + slotW * (ci + 0.5);
+        const reason = reasons[id];
+        const hasNote = reason && (reason.count > 0 || reason.impact_level);
+        const isPicked = picked === id;
+        const n = b ? b.n : 0;
+        const hover = (e) => onHover({ kind: 'box', id, label, box: b, x: e.clientX, y: e.clientY });
+        return (
+          <g key={id}>
+            {/* Hit area for hover / click over the whole slot column. */}
+            <rect className={'hit' + (isPicked ? ' picked' : '')}
+                  x={cx - slotW / 2} y={padTop} width={slotW} height={innerH}
+                  onMouseEnter={hover} onMouseMove={hover} onMouseLeave={() => onHover(null)}
+                  onClick={() => onPick(id)} />
+            {b && n > 0 && (
+              <g pointerEvents="none">
+                <line x1={cx} y1={yOf(b.lo)} x2={cx} y2={yOf(b.hi)} stroke="var(--dim)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+                <line x1={cx - 3} y1={yOf(b.lo)} x2={cx + 3} y2={yOf(b.lo)} stroke="var(--dim)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+                <line x1={cx - 3} y1={yOf(b.hi)} x2={cx + 3} y2={yOf(b.hi)} stroke="var(--dim)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+                <rect x={cx - boxW / 2} y={yOf(b.q3)} width={boxW} height={Math.max(1, yOf(b.q1) - yOf(b.q3))}
+                      fill="var(--surf2)" stroke="var(--txt)" strokeWidth="0.75" vectorEffect="non-scaling-stroke" />
+                <line x1={cx - boxW / 2} y1={yOf(b.median)} x2={cx + boxW / 2} y2={yOf(b.median)} stroke="var(--accent)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+              </g>
+            )}
+            {b && b.outliers.map(([code, pct], i) => (
+              <circle key={code} cx={cx + jitter(i, boxW / 2 - 3)} cy={yOf(pct)} r="2.5"
+                      fill={pct > 0 ? DOT_POS : DOT_NEG} style={{ cursor: 'pointer' }}
+                      onMouseEnter={e => onHover({ kind: 'dot', id, label, code, pct, x: e.clientX, y: e.clientY })}
+                      onMouseMove={e => onHover({ kind: 'dot', id, label, code, pct, x: e.clientX, y: e.clientY })}
+                      onMouseLeave={() => onHover(null)}
+                      onClick={() => onPick(id)} />
+            ))}
+            {hasNote && (
+              <g className={'info-icon' + (popover && popover.id === id ? ' active' : '')}
+                 onClick={(e) => onInfo(e, id)} style={{ cursor: 'help' }}>
+                <title>{`Why ${label} has outliers`}</title>
+                <circle cx={cx} cy={padTop - 13} r="6.5" />
+                <text x={cx} y={padTop - 10} textAnchor="middle">i</text>
+              </g>
+            )}
+            <text className={'cat-label' + (isPicked ? ' picked' : '')}
+                  x={cx} y={yLabel} textAnchor="end" dominantBaseline="middle"
+                  transform={`rotate(-90 ${cx} ${yLabel})`} onClick={() => onPick(id)}>{label}</text>
+            <text className="cat-n" x={cx} y={H - 4} textAnchor="middle">n={n}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+const WORST_COLS = [
+  ['rank', '#', 'num'],
+  ['name', 'process', ''],
+  ['location', 'location', ''],
+  ['sector', 'sector', ''],
+  ['unit', 'unit', ''],
+  ['ours', 'ours', 'num'],
+  ['ref', BASE_TAG, 'num'],
+  ['pct', 'Δ%', 'num'],
+];
+
+function WorstList({ short, rows, box, sector, selected, productReasons, onRow, onClose }) {
+  const [sortKey, setSortKey] = useState('rank');
+  const [sortDir, setSortDir] = useState(1);
+  const [filter, setFilter] = useState('');
+  const ref = useRef(null);
+  const label = (CATS.find(c => c[0] === short) || [short, short])[1];
+
+  useEffect(() => {
+    setSortKey('rank'); setSortDir(1); setFilter('');
+    if (ref.current) ref.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [short]);
+
+  const ranked = useMemo(() => Array.isArray(rows) ? rows.map((r, i) => ({ ...r, rank: i + 1 })) : [], [rows]);
+
+  const shown = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    const filtered = q
+      ? ranked.filter(r => [r.name, r.location, r.sector, r.code].some(v => String(v || '').toLowerCase().includes(q)))
+      : ranked;
+    const numeric = ['rank', 'ours', 'ref', 'pct'].includes(sortKey);
+    return [...filtered].sort((a, b) => {
+      const av = a[sortKey], bv = b[sortKey];
+      if (numeric) {
+        const af = Number.isFinite(av), bf = Number.isFinite(bv);
+        if (af && bf) return sortDir * (av - bv);
+        return af ? -1 : bf ? 1 : 0;
+      }
+      return sortDir * String(av || '').localeCompare(String(bv || ''));
+    });
+  }, [ranked, filter, sortKey, sortDir]);
+
+  function handleSort(key) {
+    if (sortKey === key) setSortDir(d => -d);
+    else { setSortKey(key); setSortDir(['ours', 'ref', 'pct'].includes(key) ? -1 : 1); }  // numbers: largest first
+  }
+
+  return (
+    <div className="worst" ref={ref}>
+      <div className="worst-hdr">
+        <span className="worst-title">{label} · worst {ranked.length || ''} by |Δ|</span>
+        {box && (
+          <span className="worst-stats">
+            <span>n={fmtInt(box.n)}</span>
+            <span>median {fmtVal(box.median)}</span>
+            <span>q1 {fmtVal(box.q1)}</span>
+            <span>q3 {fmtVal(box.q3)}</span>
+            <span>outliers {fmtInt(box.n_outliers)}</span>
+          </span>
+        )}
+        {sector !== 'all' && <span className="worst-note">(worst list is global; sector filter does not apply)</span>}
+        <input className="worst-filter" type="search" placeholder="filter name / location / sector"
+               value={filter} onChange={e => setFilter(e.target.value)} />
+        <button className="detail-close" onClick={onClose}>✕ close</button>
+      </div>
+      {rows == null && <div className="worst-msg">loading {WORST_DIR}/{short}.json…</div>}
+      {rows && rows.error && <div className="worst-msg" style={{ color: '#8a3e25' }}>failed to load {WORST_DIR}/{short}.json: {rows.error}</div>}
+      {Array.isArray(rows) && (
+        <table>
+          <thead>
+            <tr>
+              {WORST_COLS.map(([key, title, cls]) => (
+                <th key={key} className={cls + (sortKey === key ? ' sorted' : '')} onClick={() => handleSort(key)}>
+                  {title}{sortKey === key ? (sortDir > 0 ? ' ↑' : ' ↓') : ''}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map(r => {
+              const note = Math.abs(r.pct) > OUTLIER_PCT && productReasons[r.code] ? productReasons[r.code][short] : null;
+              return (
+                <tr key={r.code} className={selected === r.code ? 'sel' : ''} onClick={() => onRow(r.code)}>
+                  <td className="rank">{r.rank}</td>
+                  <td className="pname-cell" title={`${r.code}\n${r.name}`}>{r.name}</td>
+                  <td>{r.location}</td>
+                  <td>{r.sector}</td>
+                  <td>{r.unit}</td>
+                  <td className="num">{fmtNum(r.ours)}</td>
+                  <td className="num">{fmtNum(r.ref)}</td>
+                  <td className="pct" style={{ background: cellBg(r.pct) }} title={note || undefined}>
+                    {note && <div className="cell-info">i</div>}
+                    {fmtVal(r.pct)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+      {Array.isArray(rows) && shown.length === 0 && <div className="worst-msg">no rows match "{filter}"</div>}
+    </div>
+  );
+}
+
+// Rows of vs_bafu.csv -> product objects for the detail panel.
+function toProducts(text) {
+  const { rows } = parseCSV(text);
+  const ids = CATS.map(c => c[0]);
+  return rows.map(r => ({
+    code: r.code,
+    name: r.name,
+    resolution: r.resolution,
+    mapped_to: r.mapped_to,
+    // BAFU reference row: the matched openLCA product name and the unit its
+    // published score refers to.
+    name_ref: r.name_ref || '',
+    mapped_to_ref: r.mapped_to_ref || '',
+    // Blank cells (no/zero reference, >10× gap, method missing) stay NaN;
+    // every consumer renders NaN as "—" and skips it in stats.
+    vals: ids.map(id => {
+      const raw = r[id];
+      const n = raw === '' || raw == null ? NaN : parseFloat(raw);
+      return Number.isFinite(n) ? n : NaN;
+    }),
+  }));
+}
+
+// Mapped processes in a sector: the largest n + n_blank over its categories.
+function mappedCount(perSector) {
+  if (!perSector) return 0;
+  return Math.max(0, ...Object.values(perSector).map(b => (b.n || 0) + (b.n_blank || 0)));
+}
+
 function App() {
+  const [boxes, setBoxes] = useState(null);
+  const [boxesState, setBoxesState] = useState('loading');  // loading | ok | error
+  const [boxesError, setBoxesError] = useState(null);
+  const [sector, setSector] = useState('all');
+  const [picked, setPicked] = useState(null);  // category short of the open worst list
+  const [worstCache, setWorstCache] = useState({});  // short -> rows | { error }
+  const inflight = useRef(new Set());
   const [PRODUCTS, setProducts] = useState([]);
-  const [loadState, setLoadState] = useState('loading');  // loading | ok | error
-  const [loadError, setLoadError] = useState(null);
-  const [csvCats, setCsvCats] = useState(0);  // CATS columns present in the loaded CSV
+  const [productsState, setProductsState] = useState('idle');  // idle | loading | ok | error
+  const [productsError, setProductsError] = useState(null);
   const [selected, setSelected] = useState(null);
   const [tooltip, setTooltip] = useState(null);
-  const [sortCol, setSortCol] = useState(null);
-  const [sortDir, setSortDir] = useState(1);
   const [reasons, setReasons] = useState({});
   const [productReasons, setProductReasons] = useState({});
   const [popover, setPopover] = useState(null);  // { id, x, y }
-  const [activeTab, setActiveTab] = useState('backtest');
-  const [dataMode, setDataMode] = useState('bafu');  // bafu | abs
-  const MODE = DATA_MODES[dataMode];
 
   useEffect(() => {
-    setLoadState('loading');
-    fetch(DATA_MODES[dataMode].url)
+    fetch(BOXES_URL)
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.text();
+        return r.json();
       })
-      .then(text => {
-        const { headers, rows } = parseCSV(text);
-        const ids = CATS.map(c => c[0]);
-        const products = rows.map(r => ({
-          code: r.code,
-          name: r.name,
-          resolution: r.resolution,
-          mapped_to: r.mapped_to,
-          // BAFU reference row (vs_bafu.csv only): the matched openLCA
-          // product name and the unit its published score refers to.
-          name_ref: r.name_ref || '',
-          mapped_to_ref: r.mapped_to_ref || '',
-          // Blank cells (no/zero reference, >10× gap, method missing) stay
-          // NaN; every consumer renders NaN as "—" and skips it in stats.
-          vals: ids.map(id => {
-            const raw = r[id];
-            const n = raw === '' || raw == null ? NaN : parseFloat(raw);
-            return Number.isFinite(n) ? n : NaN;
-          }),
-        }));
-        setProducts(products);
-        setCsvCats(ids.filter(id => headers.includes(id)).length);
-        setSelected(null);
-        setSortCol(null);
-        setLoadState('ok');
-      })
-      .catch(err => {
-        setLoadError(err.message || String(err));
-        setLoadState('error');
-      });
-  }, [dataMode]);
+      .then(payload => { setBoxes(payload); setBoxesState('ok'); })
+      .catch(err => { setBoxesError(err.message || String(err)); setBoxesState('error'); });
+  }, []);
 
   useEffect(() => {
     fetch(REASONS_URL)
@@ -624,6 +663,33 @@ function App() {
       .catch(() => setProductReasons({}));
   }, []);
 
+  // Worst list per category: fetched once on first pick, cached by short.
+  useEffect(() => {
+    if (!picked || worstCache[picked] || inflight.current.has(picked)) return;
+    inflight.current.add(picked);
+    fetch(`${WORST_DIR}/${picked}.json`)
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then(rows => setWorstCache(c => ({ ...c, [picked]: rows })))
+      .catch(err => setWorstCache(c => ({ ...c, [picked]: { error: err.message || String(err) } })))
+      .finally(() => inflight.current.delete(picked));
+  }, [picked]);
+
+  // vs_bafu.csv is only needed for the per-process bars: one fetch, on the first row click.
+  function ensureProducts() {
+    if (productsState !== 'idle') return;
+    setProductsState('loading');
+    fetch(VS_BAFU_URL)
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.text();
+      })
+      .then(text => { setProducts(toProducts(text)); setProductsState('ok'); })
+      .catch(err => { setProductsError(err.message || String(err)); setProductsState('error'); });
+  }
+
   useEffect(() => {
     if (!popover) return;
     const handler = (e) => {
@@ -636,7 +702,7 @@ function App() {
   }, [popover]);
 
   function handleInfoClick(e, id) {
-    e.stopPropagation();  // prevent column sort
+    e.stopPropagation();  // prevent the box pick
     const rect = e.currentTarget.getBoundingClientRect();
     const popWidth = 340;
     const x = Math.min(window.innerWidth - popWidth - 12, Math.max(8, rect.left - popWidth / 2 + rect.width / 2));
@@ -644,32 +710,41 @@ function App() {
     setPopover(p => (p && p.id === id) ? null : { id, x, y });
   }
 
-  const colMeans = useMemo(() =>
-    CATS.map((_, ci) => {
-      const vals = PRODUCTS.map(p => p.vals[ci]).filter(Number.isFinite).map(Math.abs);
-      if (vals.length === 0) return '—';
-      return (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
-    }), [PRODUCTS]);
-
-  const rows = useMemo(() => {
-    if (sortCol === null) return PRODUCTS;
-    const ci = CATS.findIndex(c => c[0] === sortCol);
-    return [...PRODUCTS].sort((a, b) => {
-      const av = a.vals[ci], bv = b.vals[ci];
-      const af = Number.isFinite(av), bf = Number.isFinite(bv);
-      if (af && bf) return sortDir * (av - bv);
-      if (af) return -1;
-      if (bf) return 1;
-      return 0;
-    });
-  }, [PRODUCTS, sortCol, sortDir]);
-
-  function handleColClick(id) {
-    if (sortCol === id) setSortDir(d => -d);
-    else { setSortCol(id); setSortDir(1); }
+  function handlePick(id) {
+    setPicked(p => (p === id ? null : id));
   }
 
-  const detailProduct = selected !== null ? PRODUCTS.find(p => p.code === selected) : null;
+  function handleRow(code) {
+    setSelected(s => (s === code ? null : code));
+    ensureProducts();
+  }
+
+  const sectors = boxes ? boxes.sectors : ['all'];
+  const perSector = boxes ? (boxes.boxes[sector] || boxes.boxes.all) : null;
+  const nMapped = mappedCount(perSector);
+  const worstRows = picked ? worstCache[picked] : null;
+
+  // Process names known so far (from loaded worst lists) for the dot tooltip.
+  const nameByCode = useMemo(() => {
+    const out = {};
+    for (const rows of Object.values(worstCache)) {
+      if (!Array.isArray(rows)) continue;
+      for (const r of rows) out[r.code] = r.name;
+    }
+    return out;
+  }, [worstCache]);
+
+  const selectedRow = useMemo(() => {
+    if (selected === null) return null;
+    for (const rows of Object.values(worstCache)) {
+      if (!Array.isArray(rows)) continue;
+      const hit = rows.find(r => r.code === selected);
+      if (hit) return hit;
+    }
+    return null;
+  }, [worstCache, selected]);
+
+  const detailProduct = selected !== null && productsState === 'ok' ? PRODUCTS.find(p => p.code === selected) : null;
 
   const detailRows = useMemo(() => {
     if (!detailProduct) return [];
@@ -688,17 +763,17 @@ function App() {
 
   return (
     <>
-      {loadState !== 'ok' && (
+      {boxesState !== 'ok' && (
         <div style={{
           padding: '10px 18px',
-          background: loadState === 'error' ? 'rgba(193,98,63,0.12)' : 'rgba(232,230,217,0.5)',
-          color: loadState === 'error' ? '#8a3e25' : '#555555',
+          background: boxesState === 'error' ? 'rgba(193,98,63,0.12)' : 'rgba(232,230,217,0.5)',
+          color: boxesState === 'error' ? '#8a3e25' : '#555555',
           fontFamily: 'JetBrains Mono, monospace', fontSize: 13,
         }}>
-          {loadState === 'loading' && `Loading ${DATA_MODES[dataMode].url}…`}
-          {loadState === 'error' && (
+          {boxesState === 'loading' && `Loading ${BOXES_URL}…`}
+          {boxesState === 'error' && (
             <>
-              <div>Failed to load {DATA_MODES[dataMode].url}: {loadError}</div>
+              <div>Failed to load {BOXES_URL}: {boxesError}</div>
               <div style={{ marginTop: 4, opacity: 0.7 }}>
                 Serve via HTTP (e.g. <code>cd dashboard &amp;&amp; python -m http.server 8000</code>)
                 then open <code>http://localhost:8000/backtest_dashboard.html</code>.
@@ -710,152 +785,90 @@ function App() {
       <div className="header">
         <img src="dds-logo.svg" alt="Départ de Sentier" style={{ height: 104, width: 'auto', flexShrink: 0 }} />
         <div className="header-text">
-          <h1>{
-            activeTab === 'backtest' ? MODE.title
-            : 'BAFU-2026 · DISTRIBUTIONS PER IMPACT CATEGORY'
-          }</h1>
+          <h1>BAFU-2026 · Δ% vs BAFU EF 3.1 (openLCA)</h1>
           <div className="header-sub">
-            {activeTab === 'backtest' && `${MODE.sub} · ${PRODUCTS.length} processes · ${csvCats} categories`}
-            {activeTab === 'distributions' && `Sorted % diffs per impact · ${PRODUCTS.length} processes · ${csvCats} charts`}
+            {`${fmtInt(nMapped)} processes · ${CATS.length} categories · sector: ${sectorLabel(sector)}`}
           </div>
-          {activeTab === 'backtest' && MODE.pct && (
-            <div className="legend" style={{ marginTop: 8 }}>
-              <div className="legend-item"><div className="swatch swatch-orange" /><span>ours &gt; openLCA</span></div>
-              <div className="legend-item"><div className="swatch swatch-blue" /><span>ours &lt; openLCA</span></div>
-              <div className="legend-item"><span>· dot = |Δ| &gt; {DOT_PCT}%</span></div>
-              <div className="legend-item"><span>· hover cell / click row: BAFU row + unit</span></div>
-              <div className="legend-item"><span className="legend-info">i</span><span>impact note: header</span></div>
-              <div className="legend-item"><span className="legend-cellinfo">i</span><span>process note: hover cell (|Δ| ≥ {OUTLIER_PCT}%)</span></div>
-            </div>
-          )}
-          {activeTab === 'backtest' && !MODE.pct && (
-            <div className="legend" style={{ marginTop: 8 }}>
-              <div className="legend-item"><span>· absolute EF 3.1 scores per reference unit · click a row for the per-category breakdown</span></div>
-            </div>
-          )}
-          {activeTab === 'distributions' && (
-            <div className="legend" style={{ marginTop: 8 }}>
-              <div className="legend-item"><div className="swatch swatch-orange" /><span>↑ over (model &gt; ref)</span></div>
-              <div className="legend-item"><div className="swatch swatch-blue" /><span>↓ under (model &lt; ref)</span></div>
-              <div className="legend-item"><span>· x = % diff (100 bins, symmetric ±max) · y = process count per bin</span></div>
-              <div className="legend-item"><span>· hover a curve to read the bin's % diff and process count</span></div>
-            </div>
-          )}
+          <div className="legend" style={{ marginTop: 8 }}>
+            <div className="legend-item"><span>box = quartiles q1..q3, line = median</span></div>
+            <div className="legend-item"><span>· whiskers = 1.5 IQR</span></div>
+            <div className="legend-item"><div className="swatch swatch-orange" /><span>dot: ours &gt; {BASE_TAG}</span></div>
+            <div className="legend-item"><div className="swatch swatch-blue" /><span>dot: ours &lt; {BASE_TAG}</span></div>
+            <div className="legend-item"><span className="legend-info">i</span><span>documented cause</span></div>
+            <div className="legend-item"><span>· click a box: worst 200 · click a row: per-process bars</span></div>
+          </div>
+          <div className="header-dl">
+            downloads: <a href="vs_bafu.csv" download>vs_bafu.csv</a> · <a href="emissions.csv" download>emissions.csv</a> · <a href="run_report.json" download>run_report.json</a>
+          </div>
         </div>
-        <div className="tabs">
-          {Object.entries(DATA_MODES).map(([key, m]) => (
-            <button
-              key={key}
-              className={'tab' + (activeTab === 'backtest' && dataMode === key ? ' active' : '')}
-              onClick={() => { setActiveTab('backtest'); setDataMode(key); }}
-            >{m.tab}</button>
-          ))}
-          {/* Distributions bin Δ% only: the button exists in the pct mode alone, and
-              picking a mode tab above always returns to the table view. */}
-          {MODE.pct && (
-            <button className={'tab' + (activeTab === 'distributions' ? ' active' : '')} onClick={() => setActiveTab('distributions')}>Distributions</button>
-          )}
+        <div className="header-stats">
+          <div className="stat-item"><div className="stat-n">{fmtInt(nMapped)}</div><div className="stat-lbl">Processes</div></div>
+          <div className="stat-item"><div className="stat-n">{CATS.length}</div><div className="stat-lbl">Categories</div></div>
+          <div className="stat-item"><div className="stat-n stat-txt" title={sectorLabel(sector)}>{sectorLabel(sector)}</div><div className="stat-lbl">Sector</div></div>
         </div>
-        {activeTab === 'backtest' && (
-          <div className="header-stats">
-            <div className="stat-item"><div className="stat-n">{PRODUCTS.length}</div><div className="stat-lbl">Processes</div></div>
-            <div className="stat-item"><div className="stat-n">{csvCats}</div><div className="stat-lbl">Categories</div></div>
-          </div>
-        )}
-        {activeTab === 'distributions' && (
-          <div className="header-stats">
-            <div className="stat-item"><div className="stat-n">{PRODUCTS.length}</div><div className="stat-lbl">Processes</div></div>
-            <div className="stat-item"><div className="stat-n">{csvCats}</div><div className="stat-lbl">Charts</div></div>
-          </div>
-        )}
       </div>
 
       <div className="main">
-        {activeTab === 'backtest' && (
-          <>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th className="name-col">Process</th>
-                    {CATS.map(([id, label], ci) => {
-                      const reason = reasons[id];
-                      // Show the header ⓘ when an impact carries outliers, or when it
-                      // carries a library-wide impact-level note even with zero SKUs
-                      // above the threshold (e.g. HT: Carcinog., Ecotox. Freshwater).
-                      const hasOutliers = reason && (reason.count > 0 || reason.impact_level);
-                      return (
-                        <th key={id} className={sortCol === id ? 'sorted' : ''} onClick={() => handleColClick(id)}>
-                          <div className="th-wrap">
-                            <span className="th-info-slot">
-                              {hasOutliers && (
-                                <span
-                                  className={`info-icon ${popover && popover.id === id ? 'active' : ''}`}
-                                  onClick={(e) => handleInfoClick(e, id)}
-                                  title={`Why ${label} has outliers`}
-                                >i</span>
-                              )}
-                            </span>
-                            <span className="th-text">{label}</span>
-                            <span className="th-mean">μ={colMeans[ci]}</span>
-                            {sortCol === id && <span>{sortDir > 0 ? '↑' : '↓'}</span>}
-                          </div>
-                        </th>
-                      );
-                    })}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map(product => (
-                    <tr
-                      key={product.code}
-                      className={selected === product.code ? 'sel' : ''}
-                      onClick={() => setSelected(s => (s === product.code ? null : product.code))}
-                    >
-                      <td className="name-col">
-                        <span className="pcode">{product.code}</span>
-                        <span className="pname" title={MODE.pct && refLabel(product)
-                          ? `${product.name}\nours · ${product.mapped_to}\n${MODE.baseTag} · ${refLabel(product)}`
-                          : (product.mapped_to ? `${product.name}\n${product.mapped_to}` : product.name)
-                        }>{product.name}</span>
-                      </td>
-                      {product.vals.map((v, ci) => {
-                        const isOutlier = MODE.pct && Math.abs(v) > OUTLIER_PCT;
-                        const catId = CATS[ci][0];
-                        const hasReason = isOutlier && reasons[catId] && reasons[catId].short;
-                        return (
-                          <td
-                            key={ci}
-                            className="data-cell"
-                            style={{ background: MODE.pct ? cellBg(v) : 'rgba(43,43,43,0.03)' }}
-                            onMouseEnter={e => setTooltip({ x: e.clientX, y: e.clientY, v, ci, pname: product.name, code: product.code, mOurs: product.mapped_to, mRef: refLabel(product) })}
-                            onMouseLeave={() => setTooltip(null)}
-                            onMouseMove={e => setTooltip(t => t ? { ...t, x: e.clientX, y: e.clientY } : null)}
-                          >
-                            {hasReason && <div className="cell-info">i</div>}
-                            {MODE.pct && Math.abs(v) > DOT_PCT && <div className="xdot" />}
-                            {MODE.pct ? fmtVal(v) : fmtAbs(v)}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        <div className="scroll">
+          <div className="box-panel">
+            <div className="box-bar">
+              <label htmlFor="sector-select">sector</label>
+              <select id="sector-select" value={sector} onChange={e => { setSector(e.target.value); setTooltip(null); }} disabled={!boxes}>
+                {sectors.map(s => <option key={s} value={s}>{sectorLabel(s)}</option>)}
+              </select>
+              <span>n = mapped processes with a finite Δ · y = symlog(Δ%) · |Δ| folded at {FOLD_CAP}%</span>
             </div>
+            {boxes && (
+              <BoxPlotView
+                boxes={boxes}
+                sector={sector}
+                reasons={reasons}
+                popover={popover}
+                picked={picked}
+                onInfo={handleInfoClick}
+                onPick={handlePick}
+                onHover={setTooltip}
+              />
+            )}
+          </div>
 
+          {picked && (
+            <WorstList
+              short={picked}
+              rows={worstRows}
+              box={boxes && boxes.boxes.all ? boxes.boxes.all[picked] : null}
+              sector={sector}
+              selected={selected}
+              productReasons={productReasons}
+              onRow={handleRow}
+              onClose={() => { setPicked(null); setSelected(null); }}
+            />
+          )}
+        </div>
+
+        {selected !== null && (
+          <div className="detail">
+            <div className="detail-hdr">
+              <div>
+                <span className="detail-code">{selected}</span>
+                <span className="detail-name">{detailProduct ? detailProduct.name : (selectedRow ? selectedRow.name : '')}</span>
+              </div>
+              <button className="detail-close" onClick={() => setSelected(null)}>✕ close</button>
+            </div>
+            {productsState === 'loading' && (
+              <div className="detail-vers"><div>loading {VS_BAFU_URL} ({VS_BAFU_SIZE})…</div></div>
+            )}
+            {productsState === 'error' && (
+              <div className="detail-vers"><div style={{ color: '#8a3e25' }}>failed to load {VS_BAFU_URL}: {productsError}</div></div>
+            )}
+            {productsState === 'ok' && !detailProduct && (
+              <div className="detail-vers"><div>{selected} is not in {VS_BAFU_URL}</div></div>
+            )}
             {detailProduct && (
-              <div className="detail">
-                <div className="detail-hdr">
-                  <div>
-                    <span className="detail-code">{detailProduct.code}</span>
-                    <span className="detail-name">{detailProduct.name}</span>
-                  </div>
-                  <button className="detail-close" onClick={() => setSelected(null)}>✕ close</button>
-                </div>
+              <>
                 <div className="detail-vers">
                   <div><span className="ver-tag">ours</span>{detailProduct.mapped_to || '—'}</div>
-                  {MODE.pct && <div><span className="ver-tag">{MODE.baseTag}</span>{refLabel(detailProduct) || '—'}</div>}
+                  <div><span className="ver-tag">{BASE_TAG}</span>{refLabel(detailProduct) || '—'}</div>
                 </div>
                 <div className="bars">
                   {detailRows.map(({ label, val }) => {
@@ -864,77 +877,83 @@ function App() {
                       <div className="bar-row" key={label}>
                         <span className="bar-lbl">{label}</span>
                         <div className="bar-track">
-                          <div className="bar-fill" style={{ width: `${barPct}%`, background: MODE.pct ? cellBg(val) : 'rgba(60,83,67,0.35)' }} />
+                          <div className="bar-fill" style={{ width: `${barPct}%`, background: cellBg(val) }} />
                         </div>
-                        <span className="bar-val" style={{ color: MODE.pct ? valColor(val) : 'inherit' }}>{MODE.pct ? fmtVal(val) : fmtAbs(val)}</span>
+                        <span className="bar-val" style={{ color: valColor(val) }}>{fmtVal(val)}</span>
                       </div>
                     );
                   })}
                 </div>
-              </div>
+              </>
             )}
-          </>
-        )}
-        {activeTab === 'distributions' && MODE.pct && (
-          <DistributionsView
-            products={PRODUCTS}
-            loadState={loadState}
-            loadError={loadError}
-            url={MODE.url}
-          />
+          </div>
         )}
       </div>
 
-      {activeTab === 'backtest' && tooltip && (() => {
-        const catId = CATS[tooltip.ci][0];
-        const reason = reasons[catId];
-        const isOutlier = MODE.pct && Math.abs(tooltip.v) > OUTLIER_PCT;
-        const productNote = isOutlier && productReasons[tooltip.code]
-          ? productReasons[tooltip.code][catId]
-          : null;
-        const showReason = isOutlier && ((reason && reason.short) || productNote);
-        const showVersions = MODE.pct && (tooltip.mOurs || tooltip.mRef);
-        const ttW = 320, ttH = (showReason ? (productNote ? 260 : 180) : 90) + (showVersions ? 70 : 0);
+      {tooltip && (() => {
+        const ttW = 320, ttH = tooltip.kind === 'box' ? 200 : 150;
         const margin = 10;
         let left = tooltip.x + 14;
         if (left + ttW + margin > window.innerWidth) left = Math.max(margin, tooltip.x - ttW - 14);
         let top = tooltip.y - 60;
         if (top < margin) top = tooltip.y + 18;
         if (top + ttH + margin > window.innerHeight) top = Math.max(margin, window.innerHeight - ttH - margin);
+        if (tooltip.kind === 'dot') {
+          const reason = reasons[tooltip.id];
+          const productNote = productReasons[tooltip.code] ? productReasons[tooltip.code][tooltip.id] : null;
+          return (
+            <div className="tooltip" style={{ left, top }}>
+              <div className="tt-cat">{tooltip.label} · outlier</div>
+              <div className="tt-val" style={{ color: valColor(tooltip.pct) }}>{fmtVal(tooltip.pct)}</div>
+              <div className="tt-prod">{nameByCode[tooltip.code] || tooltip.code}</div>
+              {nameByCode[tooltip.code] && <div className="tt-ver" style={{ marginTop: 3 }}>{tooltip.code}</div>}
+              {(productNote || (reason && reason.short)) && (
+                <div className="tt-reason">
+                  {productNote && (
+                    <div className="tt-prod-note">
+                      <span className="tt-scope">why this product</span>
+                      <div className="tt-short">{productNote}</div>
+                    </div>
+                  )}
+                  {reason && reason.short && (
+                    <div className={'tt-impact-note' + (productNote ? ' has-prod' : '')}>
+                      {reason.tag && <span className="tt-tag">{reason.tag.replace(/_/g, ' ')}</span>}
+                      <div className="tt-short">{reason.short}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="tt-hint">click: worst 200 of this category</div>
+            </div>
+          );
+        }
+        const b = tooltip.box;
         return (
           <div className="tooltip" style={{ left, top }}>
-            <div className="tt-cat">{CATS[tooltip.ci][1]}</div>
-            <div className="tt-val" style={{ color: MODE.pct ? valColor(tooltip.v) : 'inherit' }}>{MODE.pct ? fmtVal(tooltip.v) : fmtAbs(tooltip.v)}</div>
-            <div className="tt-prod">{tooltip.pname}</div>
-            {showVersions && (
-              <div className="tt-vers">
-                <div className="tt-ver"><span className="ver-tag">ours</span>{tooltip.mOurs || '—'}</div>
-                <div className="tt-ver"><span className="ver-tag">{MODE.baseTag}</span>{tooltip.mRef || '—'}</div>
-              </div>
+            <div className="tt-cat">{tooltip.label} · {sectorLabel(sector)}</div>
+            {!b || b.n === 0 ? (
+              <div className="tt-val" style={{ color: 'var(--dim)' }}>n=0</div>
+            ) : (
+              <>
+                <div className="tt-val" style={{ color: valColor(b.median) }}>median {fmtVal(b.median)}</div>
+                <div className="tt-stats">
+                  <span>n</span><span>{fmtInt(b.n)}</span>
+                  <span>n_blank</span><span>{fmtInt(b.n_blank)}</span>
+                  <span>min</span><span>{fmtVal(b.min)}</span>
+                  <span>q1</span><span>{fmtVal(b.q1)}</span>
+                  <span>median</span><span>{fmtVal(b.median)}</span>
+                  <span>q3</span><span>{fmtVal(b.q3)}</span>
+                  <span>max</span><span>{fmtVal(b.max)}</span>
+                  <span>outliers</span><span>{fmtInt(b.n_outliers)}{b.outliers.length < b.n_outliers ? ` (${b.outliers.length} shown)` : ''}</span>
+                </div>
+              </>
             )}
-            {showReason && (
-              <div className="tt-reason">
-                {productNote && (
-                  <div className="tt-prod-note">
-                    <span className="tt-scope">why this product</span>
-                    <div className="tt-short">{productNote}</div>
-                  </div>
-                )}
-                {reason && reason.short && (
-                  <div className={'tt-impact-note' + (productNote ? ' has-prod' : '')}>
-                    {productNote && <span className="tt-scope">this impact, library-wide</span>}
-                    {reason.tag && <span className="tt-tag">{reason.tag.replace(/_/g, ' ')}</span>}
-                    <div className="tt-short">{reason.short}</div>
-                  </div>
-                )}
-                <div className="tt-hint">click ⓘ in column header for full detail</div>
-              </div>
-            )}
+            <div className="tt-hint">click: worst 200 of this category</div>
           </div>
         );
       })()}
 
-      {activeTab === 'backtest' && popover && (() => {
+      {popover && (() => {
         const cat = CATS.find(c => c[0] === popover.id);
         const reason = reasons[popover.id];
         if (!cat || !reason) return null;

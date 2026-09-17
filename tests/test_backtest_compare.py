@@ -39,6 +39,7 @@ def _reference():
         {
             "name": [LOW, MEDIUM, "Other"],
             "location": ["CH", "CH", "DE"],
+            "sector": ["electricity", "electricity", "chemicals"],
             "unit": ["MJ", "MJ", "kg"],
             "climate": [2.0 / 3.6, 0.5 / 3.6 * 1.1, 3.0],
             "acid": [0.05, 2e-9, 0.1],
@@ -74,6 +75,7 @@ def test_align_matches_on_name_and_location_and_converts_units():
         "unit",
         "ref_unit",
         "ref_product",
+        "sector",
         "resolution",
         "climate_ours",
         "acid_ours",
@@ -97,6 +99,20 @@ def test_align_matches_on_name_and_location_and_converts_units():
     # inputs untouched
     pd.testing.assert_frame_equal(scores, _scores())
     pd.testing.assert_frame_equal(reference, _reference())
+
+
+def test_align_carries_sector_for_mapped_rows():
+    aligned = cmp.align(_scores(), _reference(), CATS)
+    by = aligned.frame.set_index("code")
+    assert by.loc[P1, "sector"] == "electricity"
+    assert not isinstance(by.loc["x", "sector"], str)  # unmatched -> NaN
+
+
+def test_align_defaults_sector_when_reference_lacks_the_column():
+    aligned = cmp.align(_scores(), _reference().drop(columns="sector"), CATS)
+    by = aligned.frame.set_index("code")
+    assert by.loc[P1, "sector"] == "unspecified"
+    assert not isinstance(by.loc["x", "sector"], str)
 
 
 def test_align_skips_unknown_unit_pairs():

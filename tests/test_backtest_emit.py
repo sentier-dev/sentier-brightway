@@ -150,6 +150,7 @@ def test_parquet_bundle(tmp_path):
         "code",
         "name",
         "location",
+        "sector",
         "ref_unit",
         "resolution",
         *[f"{s}_ref" for s in SHORTS],

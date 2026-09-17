@@ -150,3 +150,14 @@ def test_blank_sector_becomes_unspecified(bafu_xlsx):
     wb.save(bafu_xlsx)
     frame = BafuReference.from_path(bafu_xlsx).frame
     assert frame.iloc[0]["sector"] == "unspecified"
+
+
+@pytest.mark.parametrize("cell", ["#N/A", "N/A", "n/a", "-", "  #n/a ", ""])
+def test_placeholder_sector_becomes_unspecified(bafu_xlsx, cell):
+    wb = openpyxl.load_workbook(bafu_xlsx)
+    ws = wb.active
+    ws.cell(row=3, column=2).value = cell
+    wb.save(bafu_xlsx)
+    frame = BafuReference.from_path(bafu_xlsx).frame
+    assert frame.iloc[0]["sector"] == "unspecified"
+    assert frame.iloc[1]["sector"] == "electricity"  # only the edited row changes

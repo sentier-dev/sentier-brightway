@@ -73,10 +73,10 @@ def write_vs_csv(compared: Compared, categories: tuple[Category, ...], path: Pat
 
 def write_boxes(compared: Compared, categories: tuple[Category, ...], path: Path) -> None:
     """``boxes.json``: the box-plot statistics of every category, for all mapped rows and
-    per sector. Keys are sorted so the file is byte-identical across runs."""
+    per sector. Compact, keys sorted, so the file is small and byte-identical across runs."""
     payload = {"baseline": BASELINE, **boxes_payload(compared, categories)}
-    text = json.dumps(payload, indent=1, sort_keys=True, ensure_ascii=False) + "\n"
-    path.write_text(text, encoding="utf-8")
+    text = json.dumps(payload, separators=(",", ":"), sort_keys=True, ensure_ascii=False)
+    path.write_text(text + "\n", encoding="utf-8")
 
 
 def write_worst(compared: Compared, categories: tuple[Category, ...], folder: Path) -> None:

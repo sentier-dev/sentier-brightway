@@ -227,3 +227,5 @@ def test_boxes_and_worst_are_deterministic(tmp_path):
         assert a == (tmp_path / "worst2" / f"{short}.json").read_bytes()
     text = (tmp_path / "boxes1.json").read_text(encoding="utf-8")
     assert text.index('"baseline"') < text.index('"boxes"') < text.index('"categories"')
+    assert text.endswith("}\n") and text.count("\n") == 1  # compact: one line
+    assert '":' in text and '": ' not in text and '],"' in text  # no separator padding

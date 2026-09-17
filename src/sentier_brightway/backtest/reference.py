@@ -14,7 +14,8 @@ from .categories import CATEGORIES, by_header, shorts
 
 SHEET = "BAFU_2026 v1"
 PRODUCT_COL, SECTOR_COL, UNIT_COL = 0, 1, 3
-UNSPECIFIED_SECTOR = "unspecified"  # blank "Category" cells
+UNSPECIFIED_SECTOR = "unspecified"  # blank or placeholder "Category" cells
+SECTOR_PLACEHOLDERS = frozenset({"#n/a", "n/a", "-"})  # compared lower-cased, stripped
 EF_FAMILY = "EF 3.1"
 
 
@@ -122,9 +123,11 @@ class BafuReference:
 
 def _sector(value: object) -> str:
     """The table's top-level ``Category`` cell as a stripped string, or ``UNSPECIFIED_SECTOR``
-    for blank cells."""
+    for blank cells and the placeholders in ``SECTOR_PLACEHOLDERS`` (case-insensitive)."""
     text = "" if value is None else str(value).strip()
-    return text or UNSPECIFIED_SECTOR
+    if not text or text.lower() in SECTOR_PLACEHOLDERS:
+        return UNSPECIFIED_SECTOR
+    return text
 
 
 def _ef_columns(families, header, path: Path) -> dict[str, int]:

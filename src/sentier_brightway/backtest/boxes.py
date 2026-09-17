@@ -17,6 +17,7 @@ from .compare import (  # noqa: F401  (re-exported)
     BOX_DECIMALS,
     OUTLIER_CAP,
     SECTOR_COLUMN,
+    SECTOR_OUTLIER_CAP,
     UNSPECIFIED_SECTOR,
     WHISKER_K,
     Box,
@@ -47,7 +48,8 @@ def _box_dict(box: Box) -> dict:
 
 def boxes_payload(compared: Compared, categories: tuple[Category, ...]) -> dict:
     """``{"sectors", "categories", "boxes": {sector: {short: box}}}`` with ``"all"`` first;
-    sectors are the distinct sector values of the mapped rows, sorted."""
+    sectors are the distinct sector values of the mapped rows, sorted. The ``"all"`` boxes
+    keep up to ``OUTLIER_CAP`` outliers, a named sector's up to ``SECTOR_OUTLIER_CAP``."""
     meta = _mapped_meta(compared)
     sectors = [ALL_SECTORS, *sorted(set(meta[SECTOR_COLUMN]))]
     codes = compared.frame["code"]
@@ -58,11 +60,13 @@ def boxes_payload(compared: Compared, categories: tuple[Category, ...]) -> dict:
             if sector == ALL_SECTORS
             else (meta[SECTOR_COLUMN] == sector).to_numpy()
         )
+        cap = OUTLIER_CAP if sector == ALL_SECTORS else SECTOR_OUTLIER_CAP
         per_category: dict[str, dict] = {}
         for cat in categories:
             pct = compared.frame[cat.short][mask]
             n_blank = int(pct.isna().sum())
-            per_category[cat.short] = _box_dict(box_stats(pct, codes[mask], n_blank=n_blank))
+            box = box_stats(pct, codes[mask], cap=cap, n_blank=n_blank)
+            per_category[cat.short] = _box_dict(box)
         boxes[sector] = per_category
     return {
         "sectors": sectors,

@@ -132,3 +132,45 @@ def test_worst_rows_values_are_plain_floats():
         assert type(row["pct"]) is float
         assert row["pct"] == round(row["pct"], 4)
     assert "-0.0" not in json.dumps(boxes.worst_rows(_compared(), by_short("acid")))
+
+
+def _many_outliers(n_rows=500, n_out=120):
+    """One sector; n_out rows (under a quarter, so q1 = q3 = 0) are +100 % off and the rest
+    exact: every +100 % row is an outlier."""
+    codes = [f"c{i:03d}" for i in range(n_rows)]
+    names = [f"Process {i:03d}" for i in range(n_rows)]
+    scores = pd.DataFrame(
+        {
+            "bw_id": range(n_rows),
+            "code": codes,
+            "name": names,
+            "location": "CH",
+            "unit": "kilogram",
+            "climate": [2.0 if i < n_out else 1.0 for i in range(n_rows)],
+            "acid": 1.0,
+            "water": 1.0,
+        }
+    )
+    reference = pd.DataFrame(
+        {
+            "name": names,
+            "location": "CH",
+            "sector": "metals",
+            "unit": "kg",
+            "climate": 1.0,
+            "acid": 1.0,
+            "water": 1.0,
+        }
+    )
+    return compare(align(scores, reference, CATS), CATS)
+
+
+def test_payload_caps_outliers_per_sector():
+    assert boxes.OUTLIER_CAP == 500 and boxes.SECTOR_OUTLIER_CAP == 100
+    payload = boxes.boxes_payload(_many_outliers(), CATS)
+    everything = payload["boxes"]["all"]["climate"]
+    metals = payload["boxes"]["metals"]["climate"]
+    assert everything["n_outliers"] == metals["n_outliers"] == 120
+    assert len(everything["outliers"]) == 120  # under the 500 cap for "all"
+    assert len(metals["outliers"]) == 100  # capped per named sector
+    assert metals["outliers"] == everything["outliers"][:100]

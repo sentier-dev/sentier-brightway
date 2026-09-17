@@ -24,6 +24,7 @@ SECTOR_COLUMN = "sector"  # BAFU's top-level "Category"; carried onto the aligne
 UNSPECIFIED_SECTOR = "unspecified"  # used when the reference has no sector column
 MAPPED, UNMATCHED, UNIT_SKIPPED = "mapped", "unmatched", "unit_skipped"
 OUTLIER_CAP = 500  # ``Box.outliers`` entries kept per box (``n_outliers`` is the full count)
+SECTOR_OUTLIER_CAP = 100  # the same for a single sector's box (keeps boxes.json small)
 WHISKER_K = 1.5  # whiskers end at the last value within q1/q3 -/+ WHISKER_K * IQR
 BOX_DECIMALS = 4
 

@@ -12,7 +12,15 @@ import pandas as pd
 from .._version import __version__
 from .boxes import WORST_N, boxes_payload, worst_rows
 from .categories import Category, shorts
-from .compare import FOLD_CAP_PCT, MAPPED, NEAR_ZERO_FACTOR, UNMATCHED, Aligned, Compared
+from .compare import (
+    FOLD_CAP_PCT,
+    MAPPED,
+    NEAR_ZERO_FACTOR,
+    SIGNIFICANT,
+    UNMATCHED,
+    Aligned,
+    Compared,
+)
 
 BASELINE = "BAFU-2026 v1 LCIA Results (openLCA, EF 3.1)"
 EMISSIONS_CSV = "emissions.csv"  # absolute scores; read by dashboard/backtest_dashboard.html
@@ -23,7 +31,7 @@ BOXES_JSON = "boxes.json"  # box-plot statistics per sector and category; the pa
 WORST_DIR = "worst"  # <short>.json: the WORST_N rows with the largest |pct| per category
 BACKTEST_DIR = "backtest"  # parquet bundle folder
 RUN_REPORT = "run_report.json"
-SCORE_FORMAT = "%.10g"  # absolute scores: plain or scientific, 10 significant digits
+SCORE_FORMAT = f"%.{SIGNIFICANT}g"  # absolute scores: plain or scientific, 10 significant digits
 PCT_FORMAT = "%.4f"  # pct columns are rounded to 4 decimals by compare()
 
 

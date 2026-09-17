@@ -453,6 +453,7 @@ function BoxPlotView({ boxes, sector, reasons, popover, picked, onInfo, onPick, 
                   onClick={() => onPick(id)} />
             {b && n > 0 && (
               <g pointerEvents="none">
+                {/* Whiskers: the emitter guarantees lo <= q1 <= q3 <= hi, so no clamping here. */}
                 <line x1={cx} y1={yOf(b.lo)} x2={cx} y2={yOf(b.hi)} stroke="var(--dim)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
                 <line x1={cx - 3} y1={yOf(b.lo)} x2={cx + 3} y2={yOf(b.lo)} stroke="var(--dim)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
                 <line x1={cx - 3} y1={yOf(b.hi)} x2={cx + 3} y2={yOf(b.hi)} stroke="var(--dim)" strokeWidth="1" vectorEffect="non-scaling-stroke" />

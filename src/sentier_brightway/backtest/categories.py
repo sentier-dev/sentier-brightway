@@ -21,6 +21,9 @@ class Category:
 # Non-score columns of the scorer's frame, shared by scorer.py and compare.py (kept here so
 # compare.py never imports scorer.py, whose bw2calc import must stay lazy).
 META_COLUMNS = ("bw_id", "code", "name", "location", "unit")
+# The sector label for reference rows whose "Category" cell is blank or a placeholder, and
+# for references that carry no sector column at all (shared by reference.py and compare.py).
+UNSPECIFIED_SECTOR = "unspecified"
 
 CATEGORIES: tuple[Category, ...] = (
     Category("climate", "ef-3.1:climate-change", "Climate Change", "Climate change [kg CO2 eq]"),

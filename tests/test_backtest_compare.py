@@ -193,6 +193,8 @@ def test_summary_schema():
     assert climate["within_1pct"] == 1 and climate["within_5pct"] == 1
     assert climate["outliers_gt5pct"] == 1
     assert climate["median_diff_pct"] == pytest.approx(-100 / 22, abs=1e-3)
+    # box.median: the mean of the two 4-dp values, rounded again like boxes.json
+    assert climate["median_diff_pct"] == round((0.0 + round(-100 / 11, 4)) / 2, 4)
     assert climate["max_abs_diff_pct"] == pytest.approx(100 / 11, abs=1e-3)
     # two values [-9.0909, 0.0]: linear interpolation puts q1 at 3/4 and q3 at 1/4 of the gap
     assert climate["q1_diff_pct"] == pytest.approx(-100 / 11 * 0.75, abs=1e-3)
@@ -255,3 +257,31 @@ def test_summary_counts_outliers_beyond_the_whiskers():
     )
     assert b.n_outliers == 2 and b.outliers[0] == ("g", 40.0)
     assert cmp.OUTLIER_CAP == 500 and cmp.WHISKER_K == 1.5
+
+
+def test_align_rejects_duplicate_codes_in_scores():
+    scores = pd.concat([_scores(), _scores().iloc[:1]], ignore_index=True)
+    with pytest.raises(ValueError, match="duplicate codes in scores"):
+        cmp.align(scores, _reference(), CATS)
+
+
+def test_box_whiskers_never_invert_into_the_box():
+    # Tukey edge case: q1 = -250 but every value inside the fences is 0, so the raw
+    # whisker end (0) would sit above q1; the emitter clamps lo <= q1 and hi >= q3.
+    b = cmp.box_stats(pd.Series([-1000.0, 0.0, 0.0, 0.0]), pd.Series(list("abcd")))
+    assert b.q1 == -250.0 and b.lo == b.q1 == -250.0
+    assert b.q3 == 0.0 and b.hi == 0.0
+    assert b.outliers == (("a", -1000.0),) and b.n_outliers == 1
+    assert b.lo <= b.q1 <= b.median <= b.q3 <= b.hi
+
+
+def test_box_stats_zero_iqr_all_equal():
+    b = cmp.box_stats(pd.Series([5.0, 5.0, 5.0]), pd.Series(list("abc")))
+    assert (b.lo, b.q1, b.median, b.q3, b.hi) == (5.0,) * 5
+    assert b.outliers == () and b.n_outliers == 0 and (b.min, b.max) == (5.0, 5.0)
+
+
+def test_box_stats_zero_iqr_marks_every_other_value_as_outlier():
+    b = cmp.box_stats(pd.Series([0.0] * 8 + [1.0, -2.0]), pd.Series([f"c{i}" for i in range(10)]))
+    assert (b.lo, b.q1, b.q3, b.hi) == (0.0,) * 4
+    assert b.outliers == (("c9", -2.0), ("c8", 1.0)) and b.n_outliers == 2

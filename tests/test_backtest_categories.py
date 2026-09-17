@@ -53,3 +53,13 @@ def test_real_method_ids_exist():
         pytest.skip("real sentier-methods checkout not available")
     ids = set(pd.read_parquet(REAL_METHODS_PARQUET)["method_id"])
     assert set(method_ids()) == ids
+
+
+def test_unspecified_sector_is_defined_once():
+    from sentier_brightway.backtest import boxes, categories, compare, reference
+
+    assert categories.UNSPECIFIED_SECTOR == "unspecified"
+    assert reference.UNSPECIFIED_SECTOR is categories.UNSPECIFIED_SECTOR
+    assert compare.UNSPECIFIED_SECTOR is categories.UNSPECIFIED_SECTOR
+    assert boxes.UNSPECIFIED_SECTOR is categories.UNSPECIFIED_SECTOR
+    assert compare.SIGNIFICANT == 10 and boxes.SIGNIFICANT is compare.SIGNIFICANT

@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 from sentier_brightway.backtest.categories import as_js_cats
@@ -52,3 +53,17 @@ def test_html_has_no_table_or_abs_or_distributions():
     # emissions.csv is offered as a download only; the page never fetches it.
     mentions = [line for line in text.splitlines() if "emissions.csv" in line]
     assert mentions and all('href="emissions.csv"' in line for line in mentions)
+
+
+def test_html_axis_and_downloads():
+    from sentier_brightway.backtest.compare import FOLD_CAP_PCT
+    from sentier_brightway.backtest.emit import EMISSIONS_CSV, RUN_REPORT, VS_BAFU_CSV
+
+    text = HTML.read_text(encoding="utf-8")
+    assert "function symlog(v) { return Math.sign(v) * Math.log10(1 + Math.abs(v) / 10); }" in text
+    ticks = re.search(r"const Y_TICKS = \[([^\]]+)\];", text).group(1)
+    assert {int(t) for t in ticks.split(",")} == {-1000, -100, -10, -1, 0, 1, 10, 100, 1000}
+    for name in (VS_BAFU_CSV, EMISSIONS_CSV, RUN_REPORT):
+        assert f'href="{name}"' in text, name
+    assert f"const FOLD_CAP = {int(FOLD_CAP_PCT)};" in text
+    assert "const WORST_N = 200;" in text

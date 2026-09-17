@@ -1,4 +1,5 @@
-"""Write the dashboard CSVs, the meta sidecar, the parquet bundle and the run report."""
+"""Write the dashboard CSVs, the box-plot JSON, the worst-N lists, the meta sidecar, the
+parquet bundle and the run report."""
 
 from __future__ import annotations
 
@@ -9,6 +10,7 @@ from pathlib import Path
 import pandas as pd
 
 from .._version import __version__
+from .boxes import WORST_N, boxes_payload, worst_rows
 from .categories import Category, shorts
 from .compare import FOLD_CAP_PCT, MAPPED, NEAR_ZERO_FACTOR, UNMATCHED, Aligned, Compared
 
@@ -17,6 +19,8 @@ EMISSIONS_CSV = "emissions.csv"  # absolute scores; read by dashboard/backtest_d
 VS_BAFU_CSV = "vs_bafu.csv"  # pct vs BAFU; read by the dashboard
 VS_BAFU_META = "vs_bafu_meta.json"
 OUTLIER_REASONS = "outlier_reasons.json"  # per-category notes; header (i) + cell tooltip
+BOXES_JSON = "boxes.json"  # box-plot statistics per sector and category; the page's main view
+WORST_DIR = "worst"  # <short>.json: the WORST_N rows with the largest |pct| per category
 BACKTEST_DIR = "backtest"  # parquet bundle folder
 RUN_REPORT = "run_report.json"
 SCORE_FORMAT = "%.10g"  # absolute scores: plain or scientific, 10 significant digits
@@ -65,6 +69,24 @@ def write_vs_csv(compared: Compared, categories: tuple[Category, ...], path: Pat
     for cat in categories:
         columns[cat.short] = compared.frame[cat.short].to_numpy()
     pd.DataFrame(columns).to_csv(path, index=False, float_format=PCT_FORMAT, na_rep="")
+
+
+def write_boxes(compared: Compared, categories: tuple[Category, ...], path: Path) -> None:
+    """``boxes.json``: the box-plot statistics of every category, for all mapped rows and
+    per sector. Keys are sorted so the file is byte-identical across runs."""
+    payload = {"baseline": BASELINE, **boxes_payload(compared, categories)}
+    text = json.dumps(payload, indent=1, sort_keys=True, ensure_ascii=False) + "\n"
+    path.write_text(text, encoding="utf-8")
+
+
+def write_worst(compared: Compared, categories: tuple[Category, ...], folder: Path) -> None:
+    """``worst/<short>.json``: the ``WORST_N`` mapped rows with the largest |pct| per
+    category (finite pct only), sorted by |pct| descending then code."""
+    folder.mkdir(parents=True, exist_ok=True)
+    for cat in categories:
+        rows = worst_rows(compared, cat, n=WORST_N)
+        text = json.dumps(rows, indent=1, ensure_ascii=False) + "\n"
+        (folder / f"{cat.short}.json").write_text(text, encoding="utf-8")
 
 
 def _pairs(frame: pd.DataFrame) -> list[list[str]]:

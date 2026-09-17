@@ -172,11 +172,16 @@ def test_summary_schema():
         "n_compared",
         "mean_diff_pct",
         "median_diff_pct",
+        "q1_diff_pct",
+        "q3_diff_pct",
         "std_diff_pct",
         "within_1pct",
         "within_5pct",
         "outliers_gt5pct",
         "max_abs_diff_pct",
+        "whisker_lo",
+        "whisker_hi",
+        "n_outliers",
         "n_near_zero_floored",
         "n_fold_capped",
         "n_unit_skipped",
@@ -189,13 +194,21 @@ def test_summary_schema():
     assert climate["outliers_gt5pct"] == 1
     assert climate["median_diff_pct"] == pytest.approx(-100 / 22, abs=1e-3)
     assert climate["max_abs_diff_pct"] == pytest.approx(100 / 11, abs=1e-3)
+    # two values [-9.0909, 0.0]: linear interpolation puts q1 at 3/4 and q3 at 1/4 of the gap
+    assert climate["q1_diff_pct"] == pytest.approx(-100 / 11 * 0.75, abs=1e-3)
+    assert climate["q3_diff_pct"] == pytest.approx(-100 / 11 * 0.25, abs=1e-3)
+    assert climate["whisker_lo"] == pytest.approx(-100 / 11, abs=1e-3)
+    assert climate["whisker_hi"] == 0.0 and climate["n_outliers"] == 0
     acid = summary.set_index("short").loc["acid"]
     assert acid["n_compared"] == 2 and acid["n_near_zero_floored"] == 1
     assert acid["std_diff_pct"] == 0.0
     water = summary.set_index("short").loc["water"]
     assert water["n_compared"] == 0 and np.isnan(water["median_diff_pct"])
     assert np.isnan(water["std_diff_pct"]) and np.isnan(water["max_abs_diff_pct"])
+    assert np.isnan(water["q1_diff_pct"]) and np.isnan(water["whisker_hi"])
+    assert water["n_outliers"] == 0
     assert (summary["n_unit_skipped"] == 0).all()
+    assert summary["n_outliers"].dtype.kind == "i"
 
 
 def test_summary_counts_unit_skipped_on_every_row():
@@ -234,3 +247,11 @@ def test_pct_never_yields_negative_zero():
     compared = cmp.compare(cmp.align(scores, _reference(), CATS), CATS)
     value = compared.frame["climate"].iloc[0]
     assert value == 0.0 and math.copysign(1.0, value) == 1.0
+
+
+def test_summary_counts_outliers_beyond_the_whiskers():
+    b = cmp.box_stats(
+        pd.Series([-8.0, -1.0, 0.0, 0.5, 1.0, 2.0, 40.0]), pd.Series(list("abcdefg"))
+    )
+    assert b.n_outliers == 2 and b.outliers[0] == ("g", 40.0)
+    assert cmp.OUTLIER_CAP == 500 and cmp.WHISKER_K == 1.5

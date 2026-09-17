@@ -185,3 +185,45 @@ def test_vs_csv_writes_no_negative_zero(tmp_path):
     text = path.read_text()
     assert "-0.0000" not in text
     assert _read(path)["climate"].iloc[0] == "0.0000"
+
+
+def test_boxes_json_constants_and_shape(tmp_path):
+    assert emit.BOXES_JSON == "boxes.json" and emit.WORST_DIR == "worst" and emit.WORST_N == 200
+    path = tmp_path / emit.BOXES_JSON
+    emit.write_boxes(_compared(), CATS, path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert set(payload) == {"baseline", "sectors", "categories", "boxes"}
+    assert payload["baseline"] == emit.BASELINE
+    assert payload["sectors"] == ["all", "electricity"]
+    assert payload["categories"] == SHORTS
+    assert payload["boxes"]["all"]["climate"]["n"] == 2
+    assert payload["boxes"]["all"]["water"]["median"] is None
+
+
+def test_worst_dir_has_one_file_per_category(tmp_path):
+    folder = tmp_path / emit.WORST_DIR
+    emit.write_worst(_compared(), CATS, folder)
+    assert sorted(p.name for p in folder.iterdir()) == sorted(f"{s}.json" for s in SHORTS)
+    climate = json.loads((folder / "climate.json").read_text(encoding="utf-8"))
+    assert isinstance(climate, list) and len(climate) <= emit.WORST_N
+    assert [row["code"] for row in climate] == [P2, P1]
+    assert set(climate[0]) == {"code", "name", "location", "sector", "unit", "ours", "ref", "pct"}
+    assert json.loads((folder / "water.json").read_text(encoding="utf-8")) == []
+
+
+def test_worst_lists_are_capped(tmp_path, monkeypatch):
+    monkeypatch.setattr(emit, "WORST_N", 1)
+    emit.write_worst(_compared(), CATS, tmp_path / "worst")
+    assert len(json.loads((tmp_path / "worst" / "climate.json").read_text())) == 1
+
+
+def test_boxes_and_worst_are_deterministic(tmp_path):
+    for i in (1, 2):
+        emit.write_boxes(_compared(), CATS, tmp_path / f"boxes{i}.json")
+        emit.write_worst(_compared(), CATS, tmp_path / f"worst{i}")
+    assert (tmp_path / "boxes1.json").read_bytes() == (tmp_path / "boxes2.json").read_bytes()
+    for short in SHORTS:
+        a = (tmp_path / "worst1" / f"{short}.json").read_bytes()
+        assert a == (tmp_path / "worst2" / f"{short}.json").read_bytes()
+    text = (tmp_path / "boxes1.json").read_text(encoding="utf-8")
+    assert text.index('"baseline"') < text.index('"boxes"') < text.index('"categories"')

@@ -21,17 +21,21 @@ from .categories import CATEGORIES, Category, by_short
 from .compare import Aligned, align, summarise
 from .emit import (
     BACKTEST_DIR,
+    BOXES_JSON,
     EMISSIONS_CSV,
     OUTLIER_REASONS,
     RUN_REPORT,
     VS_BAFU_CSV,
     VS_BAFU_META,
+    WORST_DIR,
+    write_boxes,
     write_emissions_csv,
     write_meta,
     write_outlier_reasons,
     write_parquet_bundle,
     write_run_report,
     write_vs_csv,
+    write_worst,
 )
 from .reference import BafuReference
 
@@ -49,8 +53,9 @@ SUMMARY_COLUMNS = (
     "short",
     "n_compared",
     "median_diff_pct",
-    "within_5pct",
-    "outliers_gt5pct",
+    "q1_diff_pct",
+    "q3_diff_pct",
+    "n_outliers",
     "max_abs_diff_pct",
 )
 
@@ -107,8 +112,8 @@ def run_backtest(
     """Score ``files_dir`` (a file-mode export) for ``categories``, spot-check ``check_n``
     processes against the plain bw2calc loop, compare with the BAFU table at ``xlsx`` and
     write ``emissions.csv``, ``vs_bafu.csv``, ``vs_bafu_meta.json``, ``outlier_reasons.json``,
-    ``backtest/*.parquet`` and ``run_report.json`` into ``out_dir`` (created only once the
-    inputs are read)."""
+    ``boxes.json``, ``worst/<short>.json``, ``backtest/*.parquet`` and ``run_report.json``
+    into ``out_dir`` (created only once the inputs are read)."""
     from .scorer import check_against_loop, score_all  # bw2calc import stays lazy
 
     files_dir, out_dir = Path(files_dir), Path(out_dir)
@@ -129,6 +134,8 @@ def run_backtest(
     write_vs_csv(compared, categories, out_dir / VS_BAFU_CSV)
     write_meta(compared, categories, out_dir / VS_BAFU_META)
     write_outlier_reasons(out_dir / OUTLIER_REASONS)
+    write_boxes(compared, categories, out_dir / BOXES_JSON)
+    write_worst(compared, categories, out_dir / WORST_DIR)
     write_parquet_bundle(scores.frame, compared, summary, out_dir / BACKTEST_DIR)
     counts = _counts(scores, reference, aligned)
     write_run_report(out_dir / RUN_REPORT, _source_pins(files_dir), scores.solver, timings, counts)
@@ -143,7 +150,8 @@ def run_backtest(
 
 
 def render_summary(result: BacktestResult) -> str:
-    """Human-readable outcome: where it went, the match counts and one line per category."""
+    """Human-readable outcome: where it went, the match counts and one line per category
+    (median, quartiles, outliers beyond the whiskers, largest |pct|)."""
     table = result.summary[list(SUMMARY_COLUMNS)].to_string(
         index=False, float_format=lambda v: f"{v:.2f}"
     )

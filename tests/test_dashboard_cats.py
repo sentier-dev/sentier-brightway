@@ -1,4 +1,3 @@
-import re
 from pathlib import Path
 
 from sentier_brightway.backtest.categories import as_js_cats
@@ -24,28 +23,32 @@ def test_html_has_no_drilldown_or_cross_version_code():
         "vs_evea",
     ):
         assert needle not in text, needle
-    assert "vs_bafu.csv" in text and "emissions.csv" in text
+    assert "vs_bafu.csv" in text
 
 
-def test_html_data_mode_urls_match_emit_constants():
-    from sentier_brightway.backtest.emit import EMISSIONS_CSV, VS_BAFU_CSV
-
-    text = HTML.read_text(encoding="utf-8")
-    start = text.index("const DATA_MODES = {")
-    end = text.index("\n};", start)
-    urls = set(re.findall(r"url: '([^']+)'", text[start:end]))
-    assert urls == {EMISSIONS_CSV, VS_BAFU_CSV}
-
-
-def test_html_reasons_url_matches_emit_constant():
-    from sentier_brightway.backtest.emit import OUTLIER_REASONS
+def test_html_reads_the_v2_files():
+    from sentier_brightway.backtest.emit import BOXES_JSON, OUTLIER_REASONS, VS_BAFU_CSV, WORST_DIR
 
     text = HTML.read_text(encoding="utf-8")
-    assert re.search(r"const REASONS_URL = '([^']+)'", text).group(1) == OUTLIER_REASONS
+    assert f"const BOXES_URL = '{BOXES_JSON}'" in text
+    assert f"const WORST_DIR = '{WORST_DIR}'" in text
+    assert f"const VS_BAFU_URL = '{VS_BAFU_CSV}'" in text
+    assert f"const REASONS_URL = '{OUTLIER_REASONS}'" in text
 
 
-def test_html_distributions_view_is_pct_only():
+def test_html_has_no_table_or_abs_or_distributions():
     text = HTML.read_text(encoding="utf-8")
-    tab = text.index("setActiveTab('distributions')")
-    assert "{MODE.pct && (" in text[tab - 200 : tab]
-    assert "activeTab === 'distributions' && MODE.pct && (" in text
+    for needle in (
+        "DistributionsView",
+        "DATA_MODES",
+        "dataMode",
+        "fmtAbs",
+        "handleColClick",
+        "colMeans",
+    ):
+        assert needle not in text, needle
+    for needle in ("function BoxPlotView", "function WorstList", "symlog"):
+        assert needle in text, needle
+    # emissions.csv is offered as a download only; the page never fetches it.
+    mentions = [line for line in text.splitlines() if "emissions.csv" in line]
+    assert mentions and all('href="emissions.csv"' in line for line in mentions)

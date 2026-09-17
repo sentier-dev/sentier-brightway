@@ -17,6 +17,8 @@ NEAR_ZERO_FACTOR = 0.01  # of the median |reference| per category
 FOLD_CAP_PCT = 1000.0
 PCT_DECIMALS = 4
 KEY = ("name", "location")
+SECTOR_COLUMN = "sector"  # BAFU's top-level "Category"; carried onto the aligned frame
+UNSPECIFIED_SECTOR = "unspecified"  # used when the reference has no sector column
 MAPPED, UNMATCHED, UNIT_SKIPPED = "mapped", "unmatched", "unit_skipped"
 
 # BAFU table unit spelling -> Brightway spelling (as written by sentier_brightway.units)
@@ -75,7 +77,8 @@ def unit_factor(ours: str, table: str) -> float | None:
 
 @dataclass(frozen=True)
 class Aligned:
-    # META_COLUMNS + ref_unit, ref_product, resolution, <short>_ours (table unit), <short>_ref
+    # META_COLUMNS + ref_unit, ref_product, sector (NaN unless a reference row was found),
+    # resolution, <short>_ours (table unit), <short>_ref
     frame: pd.DataFrame
     unmatched_ref: tuple[tuple[str, str], ...]  # (name, location) of reference rows unused
     unit_skipped: Mapping[tuple[str, str], int]  # (our unit, table unit) -> count
@@ -111,12 +114,14 @@ def _normalise_reference(reference: pd.DataFrame, shorts: list[str]) -> tuple[pd
     aliased. ``ref_product`` keeps the table's own spelling. Returns the frame and the
     number of rows whose location was aliased."""
     ref = reference[[*KEY, "unit", *shorts]].rename(columns={"unit": "ref_unit"})
+    sector = reference.get(SECTOR_COLUMN, UNSPECIFIED_SECTOR)
     location = ref["location"].map(lambda loc: LOCATION_ALIASES.get(loc, loc))
     aliased = int((location != ref["location"]).sum())
     ref = ref.assign(
         ref_product=ref["name"] + " - " + ref["location"],
         name=ref["name"].str.strip(),
         location=location,
+        **{SECTOR_COLUMN: sector},
     )
     return ref, aliased
 
@@ -128,8 +133,9 @@ def align(
     the table's unit. Names are stripped on both sides and the reference's locations go
     through ``LOCATION_ALIASES`` before the join (ours stay as in the registry). Rows
     resolve to ``mapped``, ``unmatched`` (no reference row) or ``unit_skipped`` (reference
-    found but no conversion known); ``<short>_ours`` is NaN unless mapped. Neither input is
-    modified."""
+    found but no conversion known); ``<short>_ours`` is NaN unless mapped. The reference's
+    ``sector`` column rides along (``UNSPECIFIED_SECTOR`` when the reference has none, NaN
+    for unmatched rows). Neither input is modified."""
     shorts = [c.short for c in categories]
     _check_columns(scores, (*META_COLUMNS, *shorts), "scores")
     _check_columns(reference, (*KEY, "unit", *shorts), "reference")
@@ -146,7 +152,7 @@ def align(
     factor = pd.Series([f for _, f in resolved], index=merged.index, dtype=float)
     converted = {f"{s}_ours": merged[f"{s}_ours"] * factor for s in shorts}
     out = merged.assign(resolution=resolution, **converted)
-    order = [*META_COLUMNS, "ref_unit", "ref_product", "resolution"]
+    order = [*META_COLUMNS, "ref_unit", "ref_product", SECTOR_COLUMN, "resolution"]
     order += [f"{s}_ours" for s in shorts] + [f"{s}_ref" for s in shorts]
     skipped: dict[tuple[str, str], int] = {}
     for (res, _), unit, ref_unit in zip(resolved, merged["unit"], merged["ref_unit"]):

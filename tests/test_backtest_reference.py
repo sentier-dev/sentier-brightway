@@ -31,7 +31,7 @@ def test_demojibake_variants():
 
 def test_reads_headers_units_and_scores(bafu_xlsx):
     ref = BafuReference.from_path(bafu_xlsx)
-    assert list(ref.frame.columns[:3]) == ["name", "location", "unit"]
+    assert list(ref.frame.columns[:4]) == ["name", "location", "sector", "unit"]
     assert len(ref.frame) == 3
     row = ref.frame.set_index(["name", "location"]).loc[
         ("Electricity, low voltage, at grid", "CH")
@@ -135,3 +135,18 @@ def test_forward_fill_ignores_family_after_ef_block(tmp_path):
     wb.save(path)
     ref = BafuReference.from_path(path)
     assert ref.frame.iloc[0]["climate"] == 1.0
+
+
+def test_sector_column_is_read_from_category(bafu_xlsx):
+    ref = BafuReference.from_path(bafu_xlsx)
+    assert list(ref.frame.columns[:4]) == ["name", "location", "sector", "unit"]
+    assert set(ref.frame["sector"]) == {"electricity"}
+
+
+def test_blank_sector_becomes_unspecified(bafu_xlsx):
+    wb = openpyxl.load_workbook(bafu_xlsx)
+    ws = wb.active
+    ws.cell(row=3, column=2).value = None
+    wb.save(bafu_xlsx)
+    frame = BafuReference.from_path(bafu_xlsx).frame
+    assert frame.iloc[0]["sector"] == "unspecified"

@@ -13,7 +13,8 @@ import pandas as pd
 from .categories import CATEGORIES, by_header, shorts
 
 SHEET = "BAFU_2026 v1"
-PRODUCT_COL, UNIT_COL = 0, 3
+PRODUCT_COL, SECTOR_COL, UNIT_COL = 0, 1, 3
+UNSPECIFIED_SECTOR = "unspecified"  # blank "Category" cells
 EF_FAMILY = "EF 3.1"
 
 
@@ -60,7 +61,7 @@ def _xlsx_path(path: Path, tmp: Path) -> Path:
 
 @dataclass(frozen=True)
 class BafuReference:
-    frame: pd.DataFrame  # columns: name, location, unit, <25 shorts> (float, NaN when blank)
+    frame: pd.DataFrame  # columns: name, location, sector, unit, <25 shorts> (NaN when blank)
     blank_cells: int
     source: str
 
@@ -93,7 +94,12 @@ class BafuReference:
                     unit = row[UNIT_COL]
                     if unit is None:
                         raise ValueError(f"{path}: blank unit for {product!r}")
-                    record = {"name": name, "location": location, "unit": str(unit).strip()}
+                    record = {
+                        "name": name,
+                        "location": location,
+                        "sector": _sector(row[SECTOR_COL]),
+                        "unit": str(unit).strip(),
+                    }
                     for short, i in columns.items():
                         value = row[i] if i < len(row) else None
                         if value is None:
@@ -110,8 +116,15 @@ class BafuReference:
                     records.append(record)
             finally:
                 wb.close()
-        frame = pd.DataFrame(records, columns=["name", "location", "unit", *shorts()])
+        frame = pd.DataFrame(records, columns=["name", "location", "sector", "unit", *shorts()])
         return cls(frame=frame, blank_cells=blanks, source=str(path))
+
+
+def _sector(value: object) -> str:
+    """The table's top-level ``Category`` cell as a stripped string, or ``UNSPECIFIED_SECTOR``
+    for blank cells."""
+    text = "" if value is None else str(value).strip()
+    return text or UNSPECIFIED_SECTOR
 
 
 def _ef_columns(families, header, path: Path) -> dict[str, int]:

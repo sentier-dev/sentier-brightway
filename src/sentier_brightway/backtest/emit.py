@@ -162,6 +162,7 @@ def write_parquet_bundle(
         "code",
         "name",
         "location",
+        "sector",
         "ref_unit",
         "resolution",
         *[f"{s}_ref" for s in shorts],

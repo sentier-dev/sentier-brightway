@@ -9,7 +9,12 @@
   cross-checked against the plain bw2calc loop, compared with BAFU's published openLCA
   results per the table's unit.
 - Dashboard (`dashboard/backtest_dashboard.html`, a copy of the sentier-agribalyse-4.0 page
-  with 25 categories and no drill-down) fed by the backtest's CSV and meta files.
+  with 25 categories) fed by the backtest's CSV and meta files.
+- Dashboard v2: box-plot main view (25 categories, symmetric-log axis, quartile boxes, 1.5 IQR
+  whiskers, outlier dots), a sector facet, a per-category worst-200 drill-down and a lazily
+  loaded per-process detail panel. `backtest` now also writes `boxes.json` and `worst/`; the
+  summary gains quartile columns. The heatmap table, the Emissions view and the Distributions
+  view are removed.
 - bw2calc and openpyxl are now hard dependencies; the `fast` extra adds pypardiso.
 - Parity script `scripts/parity_bafu_lcia.py` removed; the backtest supersedes it.
 - bw2data mode: `import_bafu_db()` / `sentier-brightway db` installs BAFU-2026 v1, an EF 3.1

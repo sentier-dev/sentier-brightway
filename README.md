@@ -66,7 +66,12 @@ uv run sentier-brightway backtest --out dashboard
 ```
 
 Then serve the folder (for example `uv run python -m http.server 8000 --directory dashboard`) and open `backtest_dashboard.html`. `--xlsx` points at BAFU's results xlsx or zip; the `fast` extra adds the pypardiso solver.
-`emissions.csv` and `vs_bafu.csv` hold the numbers. Categories agree with BAFU within a fraction of a percent at the median, except human toxicity cancer, where BAFU and EF count chromium differently.
+
+The page opens on 25 box plots of %Δ vs BAFU's openLCA results, one per EF 3.1 category, on a symmetric-log axis: box quartiles, whiskers at 1.5 IQR, outliers as dots. A sector dropdown facets the boxes by BAFU's top-level category, and hovering a box or a dot shows a tooltip. Categories with a documented cause, such as the chromium counting difference behind human toxicity cancer, carry a ⓘ note.
+
+Click a box (or its label) for the worst-200 list of that category, sortable and filterable by name, location and sector. Click a row in that list to open the per-process bar panel across all 25 categories; it loads `vs_bafu.csv` once, on demand, and caches it in memory.
+
+`backtest` writes `emissions.csv`, `vs_bafu.csv`, `boxes.json` and `worst/<short>.json` alongside the page.
 
 ### Options
 

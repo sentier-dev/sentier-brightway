@@ -1,5 +1,8 @@
 """Join our scores with BAFU's, reconcile units, compute pct differences with the 4.0
-dashboard's guards (zero reference blank, near-zero floor, fold cap), and summarise."""
+dashboard's guards (zero reference blank, near-zero floor, fold cap), and summarise.
+
+``Box``/``box_stats`` (the box-plot statistics the summary and ``boxes.py`` share) live
+here so that ``boxes.py`` can import ``compare`` without a cycle."""
 
 from __future__ import annotations
 
@@ -20,6 +23,9 @@ KEY = ("name", "location")
 SECTOR_COLUMN = "sector"  # BAFU's top-level "Category"; carried onto the aligned frame
 UNSPECIFIED_SECTOR = "unspecified"  # used when the reference has no sector column
 MAPPED, UNMATCHED, UNIT_SKIPPED = "mapped", "unmatched", "unit_skipped"
+OUTLIER_CAP = 500  # ``Box.outliers`` entries kept per box (``n_outliers`` is the full count)
+WHISKER_K = 1.5  # whiskers end at the last value within q1/q3 -/+ WHISKER_K * IQR
+BOX_DECIMALS = 4
 
 # BAFU table unit spelling -> Brightway spelling (as written by sentier_brightway.units)
 TABLE_UNITS = MappingProxyType(
@@ -91,6 +97,57 @@ class Compared:
     aligned: Aligned
     thresholds: Mapping[str, float]  # short -> near-zero threshold
     suppressed: Mapping[str, Mapping[str, int]]  # short -> {near_zero, fold_capped}
+
+
+@dataclass(frozen=True)
+class Box:
+    """Box-plot statistics of one category's finite pct values; every quantile is None
+    when ``n == 0``. ``outliers`` are ``(code, pct)`` pairs sorted by |pct| descending
+    (ties by code), capped at ``OUTLIER_CAP``."""
+
+    n: int
+    n_blank: int
+    min: float | None
+    q1: float | None
+    median: float | None
+    q3: float | None
+    max: float | None
+    lo: float | None
+    hi: float | None
+    n_outliers: int
+    outliers: tuple[tuple[str, float], ...]
+
+
+def _round_box(value: float) -> float:
+    return round(float(value), BOX_DECIMALS) + 0.0  # no -0.0
+
+
+def box_stats(pct: pd.Series, codes: pd.Series, cap: int = OUTLIER_CAP, n_blank: int = 0) -> Box:
+    """Quartiles (linear interpolation), whisker ends and outliers of the finite values of
+    ``pct``; ``codes`` labels the outliers and ``n_blank`` is passed through."""
+    values = pct.to_numpy(dtype=float)
+    finite = np.isfinite(values)
+    vals, ids = values[finite], codes.to_numpy()[finite]
+    if len(vals) == 0:
+        return Box(0, n_blank, None, None, None, None, None, None, None, 0, ())
+    q1, med, q3 = (float(np.percentile(vals, p)) for p in (25, 50, 75))
+    iqr = q3 - q1
+    inside = (vals >= q1 - WHISKER_K * iqr) & (vals <= q3 + WHISKER_K * iqr)
+    out_idx = np.flatnonzero(~inside)
+    order = sorted(out_idx, key=lambda i: (-abs(vals[i]), str(ids[i])))
+    return Box(
+        n=int(len(vals)),
+        n_blank=n_blank,
+        min=_round_box(vals.min()),
+        q1=_round_box(q1),
+        median=_round_box(med),
+        q3=_round_box(q3),
+        max=_round_box(vals.max()),
+        lo=_round_box(vals[inside].min()),
+        hi=_round_box(vals[inside].max()),
+        n_outliers=int(len(out_idx)),
+        outliers=tuple((str(ids[i]), _round_box(vals[i])) for i in order[:cap]),
+    )
 
 
 def _resolve(unit: str, ref_unit: object) -> tuple[str, float]:

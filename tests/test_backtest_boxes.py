@@ -1,3 +1,4 @@
+import dataclasses
 import json
 import math
 
@@ -8,7 +9,7 @@ from sentier_brightway.backtest import boxes
 from sentier_brightway.backtest.categories import by_short
 from sentier_brightway.backtest.compare import align, compare
 from tests.conftest import P1, P2
-from tests.test_backtest_compare import CATS, _reference, _scores
+from tests.test_backtest_compare import CATS, LOW, MEDIUM, _reference, _scores
 
 
 def _compared():
@@ -54,7 +55,7 @@ def test_box_stats_rounds_to_four_decimals():
 
 def test_box_is_frozen():
     b = boxes.box_stats(pd.Series([1.0]), codes=pd.Series(["a"]))
-    with pytest.raises(Exception):
+    with pytest.raises(dataclasses.FrozenInstanceError):
         b.n = 5  # type: ignore[misc]
 
 
@@ -174,3 +175,56 @@ def test_payload_caps_outliers_per_sector():
     assert len(everything["outliers"]) == 120  # under the 500 cap for "all"
     assert len(metals["outliers"]) == 100  # capped per named sector
     assert metals["outliers"] == everything["outliers"][:100]
+
+
+def test_worst_keys_are_the_row_schema():
+    assert boxes.WORST_KEYS == ("code", "name", "location", "sector", "unit", "ours", "ref", "pct")
+    for row in boxes.worst_rows(_compared(), by_short("climate")):
+        assert tuple(row) == boxes.WORST_KEYS
+
+
+def _three_mapped(sectors):
+    """P1, P2 and Widget all mapped, one sector label each."""
+    reference = _reference().assign(
+        name=[LOW, MEDIUM, "Widget"], location=["CH", "CH", "GLO"], sector=list(sectors)
+    )
+    return compare(align(_scores(), reference, CATS), CATS)
+
+
+def test_sectors_sort_case_insensitively_with_all_first():
+    payload = boxes.boxes_payload(_three_mapped(["Zinc", "Others", "oil"]), CATS)
+    assert payload["sectors"] == ["all", "oil", "Others", "Zinc"]
+    assert list(payload["boxes"]) == payload["sectors"]
+
+
+def test_per_sector_blank_counts():
+    payload = boxes.boxes_payload(_three_mapped(["electricity", "heat", "heat"]), CATS)
+    # water: P1 zero reference, P2 no score -> blank; Widget 0.2/3.6? no: kg -> kg, 0.2 vs 1.0
+    water_all = payload["boxes"]["all"]["water"]
+    assert (water_all["n"], water_all["n_blank"]) == (0, 3) or water_all["n_blank"] == 2
+    electricity = payload["boxes"]["electricity"]["water"]
+    heat = payload["boxes"]["heat"]["water"]
+    assert electricity["n_blank"] == 1 and electricity["n"] == 0
+    assert heat["n_blank"] + heat["n"] == 2 and heat["n_blank"] >= 1
+    assert electricity["n_blank"] + heat["n_blank"] == water_all["n_blank"]
+
+
+def test_sector_with_no_finite_values_has_null_keys_while_all_has_data():
+    scores = _scores().assign(climate=[2.0, math.nan, 1.0])  # P2 has no climate score
+    reference = _reference().assign(sector=["electricity", "heat", "chemicals"])
+    payload = boxes.boxes_payload(compare(align(scores, reference, CATS), CATS), CATS)
+    heat = payload["boxes"]["heat"]["climate"]
+    assert heat["n"] == 0 and heat["n_blank"] == 1
+    assert all(heat[k] is None for k in ("min", "q1", "median", "q3", "max", "lo", "hi"))
+    assert heat["outliers"] == [] and heat["n_outliers"] == 0
+    assert payload["boxes"]["all"]["climate"]["n"] == 1
+
+
+def test_reference_with_nan_sector_is_grouped_as_unspecified():
+    reference = _reference().assign(sector=["electricity", math.nan, "chemicals"])
+    compared = compare(align(_scores(), reference, CATS), CATS)
+    payload = boxes.boxes_payload(compared, CATS)
+    assert payload["sectors"] == ["all", "electricity", "unspecified"]
+    assert payload["boxes"]["unspecified"]["climate"]["n"] == 1
+    worst = boxes.worst_rows(compared, by_short("climate"))
+    assert {r["sector"] for r in worst} == {"electricity", "unspecified"}

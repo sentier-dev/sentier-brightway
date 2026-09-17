@@ -12,13 +12,13 @@ from dataclasses import asdict
 import numpy as np
 import pandas as pd
 
-from .categories import Category
+from .categories import UNSPECIFIED_SECTOR, Category
 from .compare import (  # noqa: F401  (re-exported)
     BOX_DECIMALS,
     OUTLIER_CAP,
     SECTOR_COLUMN,
     SECTOR_OUTLIER_CAP,
-    UNSPECIFIED_SECTOR,
+    SIGNIFICANT,
     WHISKER_K,
     Box,
     Compared,
@@ -27,8 +27,7 @@ from .compare import (  # noqa: F401  (re-exported)
 
 ALL_SECTORS = "all"
 WORST_N = 200
-SIGNIFICANT = 10  # digits kept for absolute scores in the worst lists (as SCORE_FORMAT)
-WORST_KEYS = ("code", "name", "location", "sector", "unit", "ours", "ref", "pct")
+WORST_KEYS = ("code", "name", "location", "sector", "unit", "ours", "ref", "pct")  # row schema
 
 
 def _mapped_meta(compared: Compared) -> pd.DataFrame:
@@ -40,6 +39,12 @@ def _mapped_meta(compared: Compared) -> pd.DataFrame:
     return meta.assign(**{SECTOR_COLUMN: sector}).reset_index()
 
 
+def _sorted_sectors(sector: pd.Series) -> list[str]:
+    """Distinct sector labels, case-insensitive order ("Others" sorts among the o's), the
+    original spelling as a stable tie-break."""
+    return sorted(set(sector), key=lambda s: (s.casefold(), s))
+
+
 def _box_dict(box: Box) -> dict:
     payload = asdict(box)
     payload["outliers"] = [list(pair) for pair in box.outliers]
@@ -48,10 +53,11 @@ def _box_dict(box: Box) -> dict:
 
 def boxes_payload(compared: Compared, categories: tuple[Category, ...]) -> dict:
     """``{"sectors", "categories", "boxes": {sector: {short: box}}}`` with ``"all"`` first;
-    sectors are the distinct sector values of the mapped rows, sorted. The ``"all"`` boxes
+    sectors are the distinct sector values of the mapped rows, sorted case-insensitively
+    (``_sorted_sectors``). The ``"all"`` boxes
     keep up to ``OUTLIER_CAP`` outliers, a named sector's up to ``SECTOR_OUTLIER_CAP``."""
     meta = _mapped_meta(compared)
-    sectors = [ALL_SECTORS, *sorted(set(meta[SECTOR_COLUMN]))]
+    sectors = [ALL_SECTORS, *_sorted_sectors(meta[SECTOR_COLUMN])]
     codes = compared.frame["code"]
     boxes: dict[str, dict[str, dict]] = {}
     for sector in sectors:
@@ -90,15 +96,20 @@ def worst_rows(compared: Compared, cat: Category, n: int = WORST_N) -> list[dict
     ours = meta[f"{cat.short}_ours"].to_numpy(dtype=float)
     ref = meta[f"{cat.short}_ref"].to_numpy(dtype=float)
     return [
-        {
-            "code": str(codes[i]),
-            "name": str(meta["name"].iloc[i]),
-            "location": str(meta["location"].iloc[i]),
-            "sector": str(meta[SECTOR_COLUMN].iloc[i]),
-            "unit": str(meta["ref_unit"].iloc[i]),
-            "ours": _plain(ours[i]),
-            "ref": _plain(ref[i]),
-            "pct": round(float(pct[i]), BOX_DECIMALS) + 0.0,
-        }
+        dict(
+            zip(
+                WORST_KEYS,
+                (
+                    str(codes[i]),
+                    str(meta["name"].iloc[i]),
+                    str(meta["location"].iloc[i]),
+                    str(meta[SECTOR_COLUMN].iloc[i]),
+                    str(meta["ref_unit"].iloc[i]),
+                    _plain(ours[i]),
+                    _plain(ref[i]),
+                    round(float(pct[i]), BOX_DECIMALS) + 0.0,
+                ),
+            )
+        )
         for i in order
     ]

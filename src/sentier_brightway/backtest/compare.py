@@ -14,14 +14,14 @@ from typing import Mapping
 import numpy as np
 import pandas as pd
 
-from .categories import META_COLUMNS, Category
+from .categories import META_COLUMNS, UNSPECIFIED_SECTOR, Category  # noqa: F401  (re-export)
 
 NEAR_ZERO_FACTOR = 0.01  # of the median |reference| per category
 FOLD_CAP_PCT = 1000.0
 PCT_DECIMALS = 4
+SIGNIFICANT = 10  # significant digits kept for absolute scores (CSV and worst lists)
 KEY = ("name", "location")
 SECTOR_COLUMN = "sector"  # BAFU's top-level "Category"; carried onto the aligned frame
-UNSPECIFIED_SECTOR = "unspecified"  # used when the reference has no sector column
 MAPPED, UNMATCHED, UNIT_SKIPPED = "mapped", "unmatched", "unit_skipped"
 OUTLIER_CAP = 500  # ``Box.outliers`` entries kept per box (``n_outliers`` is the full count)
 SECTOR_OUTLIER_CAP = 100  # the same for a single sector's box (keeps boxes.json small)
@@ -125,7 +125,8 @@ def _round_box(value: float) -> float:
 
 def box_stats(pct: pd.Series, codes: pd.Series, cap: int = OUTLIER_CAP, n_blank: int = 0) -> Box:
     """Quartiles (linear interpolation), whisker ends and outliers of the finite values of
-    ``pct``; ``codes`` labels the outliers and ``n_blank`` is passed through."""
+    ``pct``; ``codes`` labels the outliers and ``n_blank`` is passed through. The result
+    satisfies ``min <= lo <= q1 <= median <= q3 <= hi <= max`` whenever ``n > 0``."""
     values = pct.to_numpy(dtype=float)
     finite = np.isfinite(values)
     vals, ids = values[finite], codes.to_numpy()[finite]
@@ -134,6 +135,9 @@ def box_stats(pct: pd.Series, codes: pd.Series, cap: int = OUTLIER_CAP, n_blank:
     q1, med, q3 = (float(np.percentile(vals, p)) for p in (25, 50, 75))
     iqr = q3 - q1
     inside = (vals >= q1 - WHISKER_K * iqr) & (vals <= q3 + WHISKER_K * iqr)
+    # With n <= 4 the interpolated quartile can lie outside every inside value, which
+    # would invert a whisker into the box; clamp so lo <= q1 and q3 <= hi always hold.
+    lo, hi = min(float(vals[inside].min()), q1), max(float(vals[inside].max()), q3)
     out_idx = np.flatnonzero(~inside)
     order = sorted(out_idx, key=lambda i: (-abs(vals[i]), str(ids[i])))
     return Box(
@@ -144,8 +148,8 @@ def box_stats(pct: pd.Series, codes: pd.Series, cap: int = OUTLIER_CAP, n_blank:
         median=_round_box(med),
         q3=_round_box(q3),
         max=_round_box(vals.max()),
-        lo=_round_box(vals[inside].min()),
-        hi=_round_box(vals[inside].max()),
+        lo=_round_box(lo),
+        hi=_round_box(hi),
         n_outliers=int(len(out_idx)),
         outliers=tuple((str(ids[i]), _round_box(vals[i])) for i in order[:cap]),
     )
@@ -189,7 +193,8 @@ def align(
 ) -> Aligned:
     """Left-join ``reference`` onto ``scores`` by (name, location) and convert our scores to
     the table's unit. Names are stripped on both sides and the reference's locations go
-    through ``LOCATION_ALIASES`` before the join (ours stay as in the registry). Rows
+    through ``LOCATION_ALIASES`` before the join (ours stay as in the registry). Codes must
+    be unique (downstream writers look rows up by code). Rows
     resolve to ``mapped``, ``unmatched`` (no reference row) or ``unit_skipped`` (reference
     found but no conversion known); ``<short>_ours`` is NaN unless mapped. The reference's
     ``sector`` column rides along (``UNSPECIFIED_SECTOR`` when the reference has none, NaN
@@ -197,6 +202,9 @@ def align(
     shorts = [c.short for c in categories]
     _check_columns(scores, (*META_COLUMNS, *shorts), "scores")
     _check_columns(reference, (*KEY, "unit", *shorts), "reference")
+    if not scores["code"].is_unique:
+        dupes = sorted(scores["code"][scores["code"].duplicated()].astype(str))[:5]
+        raise ValueError(f"duplicate codes in scores: {dupes}")
     ref, aliased = _normalise_reference(reference, shorts)
     ours = scores[[*META_COLUMNS, *shorts]].assign(name=scores["name"].str.strip())
     try:
@@ -288,7 +296,7 @@ def _summary_row(cat: Category, compared: Compared, n_skipped: int) -> dict:
         "method_id": cat.method_id,
         "n_compared": n,
         "mean_diff_pct": float(pct.mean()) if n else math.nan,
-        "median_diff_pct": float(pct.median()) if n else math.nan,
+        "median_diff_pct": _or_nan(box.median),
         "q1_diff_pct": _or_nan(box.q1),
         "q3_diff_pct": _or_nan(box.q3),
         "std_diff_pct": float(pct.std()) if n > 1 else math.nan,

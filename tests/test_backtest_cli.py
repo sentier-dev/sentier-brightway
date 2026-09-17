@@ -166,3 +166,28 @@ def test_cli_backtest_files_at_non_export_folder_is_an_error(bafu_xlsx, tmp_path
     )
     assert rc == 2 and "ERROR:" in capsys.readouterr().err
     assert not (tmp_path / "dash").exists()
+
+
+def test_render_summary_prints_tiny_negatives_as_zero(tmp_path):
+    from types import SimpleNamespace
+
+    from sentier_brightway.backtest import SUMMARY_COLUMNS, BacktestResult
+
+    summary = pd.DataFrame(
+        [
+            {
+                c: (-0.001 if c.endswith("_pct") else "climate" if c == "short" else 0)
+                for c in SUMMARY_COLUMNS
+            }
+        ]
+    )
+    result = BacktestResult(
+        scores=SimpleNamespace(solver="scipy", elapsed_s=0.0),
+        summary=summary,
+        out_dir=tmp_path,
+        n_mapped=1,
+        n_unmatched=0,
+        n_unit_skipped=0,
+    )
+    text = render_summary(result)
+    assert "-0.00" not in text and "0.00" in text

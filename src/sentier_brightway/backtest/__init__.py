@@ -153,7 +153,7 @@ def render_summary(result: BacktestResult) -> str:
     """Human-readable outcome: where it went, the match counts and one line per category
     (median, quartiles, outliers beyond the whiskers, largest |pct|)."""
     table = result.summary[list(SUMMARY_COLUMNS)].to_string(
-        index=False, float_format=lambda v: f"{v:.2f}"
+        index=False, float_format=lambda v: f"{round(v, 2) + 0.0:.2f}"  # -0.001 -> 0.00
     )
     return (
         f"Backtest written to {result.out_dir}\n"

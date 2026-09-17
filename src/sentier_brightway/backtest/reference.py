@@ -10,11 +10,10 @@ from pathlib import Path
 
 import pandas as pd
 
-from .categories import CATEGORIES, by_header, shorts
+from .categories import CATEGORIES, UNSPECIFIED_SECTOR, by_header, shorts
 
 SHEET = "BAFU_2026 v1"
 PRODUCT_COL, SECTOR_COL, UNIT_COL = 0, 1, 3
-UNSPECIFIED_SECTOR = "unspecified"  # blank or placeholder "Category" cells
 SECTOR_PLACEHOLDERS = frozenset({"#n/a", "n/a", "-"})  # compared lower-cased, stripped
 EF_FAMILY = "EF 3.1"
 

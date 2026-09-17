@@ -45,7 +45,6 @@
     .legend-item { display: flex; align-items: center; gap: 5px; font-size: 9.5px; color: var(--dim); font-family: 'JetBrains Mono', monospace; }
     .swatch { width: 28px; height: 9px; border-radius: 2px; }
     .legend-info { display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px; border-radius: 50%; border: 1px solid var(--dim); color: var(--dim); font-size: 9px; font-family: 'JetBrains Mono', monospace; font-weight: 500; line-height: 1; }
-    .legend-cellinfo { display: inline-flex; align-items: center; justify-content: center; width: 11px; height: 11px; border-radius: 50%; border: 1px solid rgba(20,24,40,0.45); color: rgba(20,24,40,0.7); font-size: 7px; font-family: 'JetBrains Mono', monospace; font-weight: 500; line-height: 1; }
     .swatch-blue { background: linear-gradient(to right, rgba(132,174,153,0.15), rgba(132,174,153,0.85)); }
     .swatch-orange { background: linear-gradient(to right, rgba(193,98,63,0.15), rgba(193,98,63,0.85)); }
     .header-stats { margin-left: auto; display: flex; gap: 22px; flex-shrink: 0; }
@@ -53,22 +52,8 @@
     .stat-n { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 500; line-height: 1; color: var(--txt); }
     .stat-lbl { font-size: 8.5px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
 
-    .tabs { display: flex; gap: 4px; margin-left: 24px; flex-shrink: 0; }
-    .tab {
-      background: transparent; border: 1px solid var(--bord);
-      color: var(--dim); cursor: pointer;
-      font-family: 'JetBrains Mono', monospace; font-size: 10px;
-      padding: 5px 12px; border-radius: 3px;
-      letter-spacing: 0.04em; text-transform: uppercase;
-      white-space: nowrap;
-      transition: all 0.15s;
-    }
-    .tab:hover { color: var(--txt); border-color: var(--dim); }
-    .tab.active { background: var(--accent); border-color: var(--accent); color: #ffffff; }
-
 
     .main { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
-    .table-wrap { flex: 1; overflow: auto; }
 
     table { border-collapse: separate; border-spacing: 0; width: 100%; }
 
@@ -86,41 +71,9 @@
     thead th:hover { color: var(--accent); }
     thead th.sorted { color: var(--accent); }
 
-    .th-wrap { height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 5px; }
-    .th-info-slot { height: 14px; display: flex; align-items: center; justify-content: center; }
-    .th-text { writing-mode: vertical-lr; transform: rotate(180deg); font-size: 10px; white-space: nowrap; letter-spacing: 0.01em; color: var(--txt); }
-    .th-mean { font-size: 8.5px; color: var(--dim); }
-
-    th.name-col, td.name-col {
-      position: sticky; left: 0; z-index: 5;
-      background: var(--surf);
-      border-right: 1px solid var(--bord);
-      min-width: 208px; max-width: 208px;
-      padding: 0 10px 0 14px;
-    }
-    thead th.name-col { z-index: 20; text-align: left; font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; vertical-align: bottom; padding-bottom: 6px; }
-    td.name-col { cursor: pointer; }
-    .pcode { font-family: 'JetBrains Mono', monospace; font-size: 8px; color: var(--dim); display: block; margin-bottom: 1px; }
-    .pname { font-size: 11px; color: var(--txt); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 186px; }
-
     tbody tr { border-bottom: 1px solid var(--row-sep); cursor: pointer; }
     tbody tr:hover td, tbody tr:hover th { background: var(--surf2) !important; }
     tbody tr.sel td, tbody tr.sel th { background: var(--sel-bg) !important; }
-    tbody tr.sel td.name-col { border-right-color: var(--accent); }
-
-    td.data-cell {
-      min-width: 52px; height: 34px;
-      text-align: center; vertical-align: middle;
-      position: relative;
-      border-right: 1px solid var(--grid);
-      transition: filter 0.1s;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 8px;
-      color: var(--cell-text);
-      overflow: hidden;
-    }
-    td.data-cell:hover { filter: saturate(1.25) contrast(1.05); }
-    .xdot { position: absolute; top: 2px; right: 2px; width: 3px; height: 3px; border-radius: 50%; background: rgba(20,24,40,0.6); }
 
     .tooltip {
       position: fixed; pointer-events: none; z-index: 1000;
@@ -133,7 +86,6 @@
     .tt-cat { font-size: 10px; color: var(--dim); margin-bottom: 2px; }
     .tt-val { font-size: 15px; font-weight: 600; }
     .tt-prod { font-size: 10px; color: var(--txt); margin-top: 5px; border-top: 1px solid var(--bord); padding-top: 5px; }
-    .tt-vers { margin-top: 5px; border-top: 1px solid var(--bord); padding-top: 5px; display: flex; flex-direction: column; gap: 3px; }
     .tt-ver { font-size: 9px; color: var(--dim); line-height: 1.35; font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif; }
     .ver-tag { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 8px; color: var(--accent); border: 1px solid var(--accent); border-radius: 2px; padding: 0 3px; margin-right: 5px; vertical-align: 1px; }
     .tt-reason { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--bord); }
@@ -182,7 +134,6 @@
     .mp-tag { display: inline-block; font-size: 8.5px; color: var(--accent); border: 1px solid var(--accent); border-radius: 2px; padding: 2px 6px; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 8px; font-family: 'JetBrains Mono', monospace; }
     .mp-long { font-size: 11.5px; color: var(--txt); line-height: 1.55; }
     .mp-badge { display: inline-block; margin-top: 8px; font-size: 9px; color: #3C5343; border: 1px solid rgba(60,83,67,0.4); background: rgba(60,83,67,0.06); border-radius: 2px; padding: 2px 6px; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.03em; }
-    .mp-empty { font-size: 10px; color: var(--dim); font-style: italic; }
 
     .detail {
       background: var(--surf);
@@ -260,7 +211,7 @@
 <script src="react-dom.min.js"></script>
 <script src="babel.min.js"></script>
 <script type="text/babel">
-const { useState, useMemo, useEffect, useRef } = React;
+const { useState, useMemo, useEffect, useRef, useCallback, memo } = React;
 
 // Data files written by `sentier-brightway backtest --out DIR`.
 //   boxes.json   box-plot statistics per sector x category; the page's main view
@@ -269,8 +220,9 @@ const { useState, useMemo, useEffect, useRef } = React;
 //                fetched lazily (first row click) for the per-process detail panel
 const BOXES_URL = 'boxes.json';
 const WORST_DIR = 'worst';
+const WORST_N = 200;  // rows per worst/<short>.json (emit.WORST_N)
 const VS_BAFU_URL = 'vs_bafu.csv';
-const VS_BAFU_SIZE = '4.7 MB';
+const VS_BAFU_SIZE = '4.7 MiB';
 const REASONS_URL = 'outlier_reasons.json';
 // Per-product × outlier-impact notes (authored by dds-build-product-reasons).
 // Keyed code → impact short-id → text. Shown above the impact-level note.
@@ -402,7 +354,8 @@ function jitter(i, halfSpan) {
   return (((i * 7919) % 13) - 6) / 6 * halfSpan;
 }
 
-function BoxPlotView({ boxes, sector, reasons, popover, picked, onInfo, onPick, onHover }) {
+// Memoised: App re-renders on every tooltip move, the SVG (up to 12k dots) must not.
+const BoxPlotView = memo(function BoxPlotView({ boxes, sector, reasons, popover, picked, onInfo, onPick, onHover }) {
   const { W, H, padTop, padBottom, padLeft, padRight, boxW } = BX;
   const innerW = W - padLeft - padRight;
   const innerH = H - padTop - padBottom;
@@ -462,7 +415,7 @@ function BoxPlotView({ boxes, sector, reasons, popover, picked, onInfo, onPick, 
                 <line x1={cx - boxW / 2} y1={yOf(b.median)} x2={cx + boxW / 2} y2={yOf(b.median)} stroke="var(--accent)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
               </g>
             )}
-            {b && b.outliers.map(([code, pct], i) => (
+            {b && (b.outliers || []).map(([code, pct], i) => (
               <circle key={code} cx={cx + jitter(i, boxW / 2 - 3)} cy={yOf(pct)} r="2.5"
                       fill={pct > 0 ? DOT_POS : DOT_NEG} style={{ cursor: 'pointer' }}
                       onMouseEnter={e => onHover({ kind: 'dot', id, label, code, pct, x: e.clientX, y: e.clientY })}
@@ -487,7 +440,7 @@ function BoxPlotView({ boxes, sector, reasons, popover, picked, onInfo, onPick, 
       })}
     </svg>
   );
-}
+});
 
 const WORST_COLS = [
   ['rank', '#', 'num'],
@@ -509,7 +462,7 @@ function WorstList({ short, rows, box, sector, selected, productReasons, onRow, 
 
   useEffect(() => {
     setSortKey('rank'); setSortDir(1); setFilter('');
-    if (ref.current) ref.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (ref.current) ref.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [short]);
 
   const ranked = useMemo(() => Array.isArray(rows) ? rows.map((r, i) => ({ ...r, rank: i + 1 })) : [], [rows]);
@@ -539,7 +492,7 @@ function WorstList({ short, rows, box, sector, selected, productReasons, onRow, 
   return (
     <div className="worst" ref={ref}>
       <div className="worst-hdr">
-        <span className="worst-title">{label} · worst {ranked.length || ''} by |Δ|</span>
+        <span className="worst-title">{label} · worst {WORST_N} by |Δ|</span>
         {box && (
           <span className="worst-stats">
             <span>n={fmtInt(box.n)}</span>
@@ -589,7 +542,74 @@ function WorstList({ short, rows, box, sector, selected, productReasons, onRow, 
           </tbody>
         </table>
       )}
-      {Array.isArray(rows) && shown.length === 0 && <div className="worst-msg">no rows match "{filter}"</div>}
+      {Array.isArray(rows) && rows.length === 0 && <div className="worst-msg">no rows</div>}
+      {Array.isArray(rows) && rows.length > 0 && shown.length === 0 && <div className="worst-msg">no rows match "{filter}"</div>}
+    </div>
+  );
+}
+
+// Box / dot tooltip; lives outside BoxPlotView so hover moves re-render this alone.
+function HoverTooltip({ tooltip, sector, reasons, productReasons, rowByCode }) {
+  if (!tooltip) return null;
+  const ttW = 320, ttH = tooltip.kind === 'box' ? 200 : 150;
+  const margin = 10;
+  let left = tooltip.x + 14;
+  if (left + ttW + margin > window.innerWidth) left = Math.max(margin, tooltip.x - ttW - 14);
+  let top = tooltip.y - 60;
+  if (top < margin) top = tooltip.y + 18;
+  if (top + ttH + margin > window.innerHeight) top = Math.max(margin, window.innerHeight - ttH - margin);
+  if (tooltip.kind === 'dot') {
+    const row = rowByCode[tooltip.code];
+    const reason = reasons[tooltip.id];
+    const productNote = productReasons[tooltip.code] ? productReasons[tooltip.code][tooltip.id] : null;
+    return (
+      <div className="tooltip" style={{ left, top }}>
+        <div className="tt-cat">{tooltip.label} · outlier</div>
+        <div className="tt-val" style={{ color: valColor(tooltip.pct) }}>{fmtVal(tooltip.pct)}</div>
+        <div className="tt-prod">{row ? `${row.name} · ${row.location}` : tooltip.code}</div>
+        {row && <div className="tt-ver" style={{ marginTop: 3 }}>{tooltip.code}</div>}
+        {(productNote || (reason && reason.short)) && (
+          <div className="tt-reason">
+            {productNote && (
+              <div className="tt-prod-note">
+                <span className="tt-scope">why this product</span>
+                <div className="tt-short">{productNote}</div>
+              </div>
+            )}
+            {reason && reason.short && (
+              <div className={'tt-impact-note' + (productNote ? ' has-prod' : '')}>
+                {reason.tag && <span className="tt-tag">{reason.tag.replace(/_/g, ' ')}</span>}
+                <div className="tt-short">{reason.short}</div>
+              </div>
+            )}
+          </div>
+        )}
+        <div className="tt-hint">click: worst 200 of this category</div>
+      </div>
+    );
+  }
+  const b = tooltip.box;
+  return (
+    <div className="tooltip" style={{ left, top }}>
+      <div className="tt-cat">{tooltip.label} · {sectorLabel(sector)}</div>
+      {!b || b.n === 0 ? (
+        <div className="tt-val" style={{ color: 'var(--dim)' }}>n=0</div>
+      ) : (
+        <>
+          <div className="tt-val" style={{ color: valColor(b.median) }}>median {fmtVal(b.median)}</div>
+          <div className="tt-stats">
+            <span>n</span><span>{fmtInt(b.n)}</span>
+            <span>n_blank</span><span>{fmtInt(b.n_blank)}</span>
+            <span>min</span><span>{fmtVal(b.min)}</span>
+            <span>q1</span><span>{fmtVal(b.q1)}</span>
+            <span>median</span><span>{fmtVal(b.median)}</span>
+            <span>q3</span><span>{fmtVal(b.q3)}</span>
+            <span>max</span><span>{fmtVal(b.max)}</span>
+            <span>outliers</span><span>{fmtInt(b.n_outliers)}{(b.outliers || []).length < b.n_outliers ? ` (${(b.outliers || []).length} shown)` : ''}</span>
+          </div>
+        </>
+      )}
+      <div className="tt-hint">click: worst 200 of this category</div>
     </div>
   );
 }
@@ -664,23 +684,34 @@ function App() {
       .catch(() => setProductReasons({}));
   }, []);
 
-  // Worst list per category: fetched once on first pick, cached by short.
-  useEffect(() => {
-    if (!picked || worstCache[picked] || inflight.current.has(picked)) return;
-    inflight.current.add(picked);
-    fetch(`${WORST_DIR}/${picked}.json`)
+  // Worst list per category: fetched once (on pick, or prefetched on box hover so the
+  // dot tooltip can show names), cached by short; worstLoaded mirrors the cache keys
+  // so the callback stays stable.
+  const worstLoaded = useRef(new Set());
+  const requestWorst = useCallback((short) => {
+    if (!short || worstLoaded.current.has(short) || inflight.current.has(short)) return;
+    inflight.current.add(short);
+    fetch(`${WORST_DIR}/${short}.json`)
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       })
-      .then(rows => setWorstCache(c => ({ ...c, [picked]: rows })))
-      .catch(err => setWorstCache(c => ({ ...c, [picked]: { error: err.message || String(err) } })))
-      .finally(() => inflight.current.delete(picked));
-  }, [picked]);
+      .then(rows => { worstLoaded.current.add(short); setWorstCache(c => ({ ...c, [short]: rows })); })
+      .catch(err => { worstLoaded.current.add(short); setWorstCache(c => ({ ...c, [short]: { error: err.message || String(err) } })); })
+      .finally(() => inflight.current.delete(short));
+  }, []);
 
-  // vs_bafu.csv is only needed for the per-process bars: one fetch, on the first row click.
+  useEffect(() => { requestWorst(picked); }, [picked, requestWorst]);
+
+  const handleHover = useCallback((info) => {
+    setTooltip(info);
+    if (info) requestWorst(info.id);
+  }, [requestWorst]);
+
+  // vs_bafu.csv is only needed for the per-process bars: one fetch on the first row
+  // click; a failed fetch may be retried by the next click.
   function ensureProducts() {
-    if (productsState !== 'idle') return;
+    if (productsState === 'loading' || productsState === 'ok') return;
     setProductsState('loading');
     fetch(VS_BAFU_URL)
       .then(r => {
@@ -702,18 +733,18 @@ function App() {
     return () => document.removeEventListener('mousedown', handler);
   }, [popover]);
 
-  function handleInfoClick(e, id) {
+  const handleInfoClick = useCallback((e, id) => {
     e.stopPropagation();  // prevent the box pick
     const rect = e.currentTarget.getBoundingClientRect();
     const popWidth = 340;
     const x = Math.min(window.innerWidth - popWidth - 12, Math.max(8, rect.left - popWidth / 2 + rect.width / 2));
     const y = rect.bottom + 8;
     setPopover(p => (p && p.id === id) ? null : { id, x, y });
-  }
+  }, []);
 
-  function handlePick(id) {
+  const handlePick = useCallback((id) => {
     setPicked(p => (p === id ? null : id));
-  }
+  }, []);
 
   function handleRow(code) {
     setSelected(s => (s === code ? null : code));
@@ -725,12 +756,12 @@ function App() {
   const nMapped = mappedCount(perSector);
   const worstRows = picked ? worstCache[picked] : null;
 
-  // Process names known so far (from loaded worst lists) for the dot tooltip.
-  const nameByCode = useMemo(() => {
+  // Processes known so far (from loaded worst lists) for the dot tooltip.
+  const rowByCode = useMemo(() => {
     const out = {};
     for (const rows of Object.values(worstCache)) {
       if (!Array.isArray(rows)) continue;
-      for (const r of rows) out[r.code] = r.name;
+      for (const r of rows) out[r.code] = r;
     }
     return out;
   }, [worstCache]);
@@ -788,7 +819,7 @@ function App() {
         <div className="header-text">
           <h1>BAFU-2026 · Δ% vs BAFU EF 3.1 (openLCA)</h1>
           <div className="header-sub">
-            {`${fmtInt(nMapped)} processes · ${CATS.length} categories · sector: ${sectorLabel(sector)}`}
+            {`${fmtInt(nMapped)} ${nMapped === 1 ? 'process' : 'processes'} · ${CATS.length} categories · sector: ${sectorLabel(sector)}`}
           </div>
           <div className="legend" style={{ marginTop: 8 }}>
             <div className="legend-item"><span>box = quartiles q1..q3, line = median</span></div>
@@ -828,7 +859,7 @@ function App() {
                 picked={picked}
                 onInfo={handleInfoClick}
                 onPick={handlePick}
-                onHover={setTooltip}
+                onHover={handleHover}
               />
             )}
           </div>
@@ -891,68 +922,7 @@ function App() {
         )}
       </div>
 
-      {tooltip && (() => {
-        const ttW = 320, ttH = tooltip.kind === 'box' ? 200 : 150;
-        const margin = 10;
-        let left = tooltip.x + 14;
-        if (left + ttW + margin > window.innerWidth) left = Math.max(margin, tooltip.x - ttW - 14);
-        let top = tooltip.y - 60;
-        if (top < margin) top = tooltip.y + 18;
-        if (top + ttH + margin > window.innerHeight) top = Math.max(margin, window.innerHeight - ttH - margin);
-        if (tooltip.kind === 'dot') {
-          const reason = reasons[tooltip.id];
-          const productNote = productReasons[tooltip.code] ? productReasons[tooltip.code][tooltip.id] : null;
-          return (
-            <div className="tooltip" style={{ left, top }}>
-              <div className="tt-cat">{tooltip.label} · outlier</div>
-              <div className="tt-val" style={{ color: valColor(tooltip.pct) }}>{fmtVal(tooltip.pct)}</div>
-              <div className="tt-prod">{nameByCode[tooltip.code] || tooltip.code}</div>
-              {nameByCode[tooltip.code] && <div className="tt-ver" style={{ marginTop: 3 }}>{tooltip.code}</div>}
-              {(productNote || (reason && reason.short)) && (
-                <div className="tt-reason">
-                  {productNote && (
-                    <div className="tt-prod-note">
-                      <span className="tt-scope">why this product</span>
-                      <div className="tt-short">{productNote}</div>
-                    </div>
-                  )}
-                  {reason && reason.short && (
-                    <div className={'tt-impact-note' + (productNote ? ' has-prod' : '')}>
-                      {reason.tag && <span className="tt-tag">{reason.tag.replace(/_/g, ' ')}</span>}
-                      <div className="tt-short">{reason.short}</div>
-                    </div>
-                  )}
-                </div>
-              )}
-              <div className="tt-hint">click: worst 200 of this category</div>
-            </div>
-          );
-        }
-        const b = tooltip.box;
-        return (
-          <div className="tooltip" style={{ left, top }}>
-            <div className="tt-cat">{tooltip.label} · {sectorLabel(sector)}</div>
-            {!b || b.n === 0 ? (
-              <div className="tt-val" style={{ color: 'var(--dim)' }}>n=0</div>
-            ) : (
-              <>
-                <div className="tt-val" style={{ color: valColor(b.median) }}>median {fmtVal(b.median)}</div>
-                <div className="tt-stats">
-                  <span>n</span><span>{fmtInt(b.n)}</span>
-                  <span>n_blank</span><span>{fmtInt(b.n_blank)}</span>
-                  <span>min</span><span>{fmtVal(b.min)}</span>
-                  <span>q1</span><span>{fmtVal(b.q1)}</span>
-                  <span>median</span><span>{fmtVal(b.median)}</span>
-                  <span>q3</span><span>{fmtVal(b.q3)}</span>
-                  <span>max</span><span>{fmtVal(b.max)}</span>
-                  <span>outliers</span><span>{fmtInt(b.n_outliers)}{b.outliers.length < b.n_outliers ? ` (${b.outliers.length} shown)` : ''}</span>
-                </div>
-              </>
-            )}
-            <div className="tt-hint">click: worst 200 of this category</div>
-          </div>
-        );
-      })()}
+      <HoverTooltip tooltip={tooltip} sector={sector} reasons={reasons} productReasons={productReasons} rowByCode={rowByCode} />
 
       {popover && (() => {
         const cat = CATS.find(c => c[0] === popover.id);

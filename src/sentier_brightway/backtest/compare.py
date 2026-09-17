@@ -273,7 +273,12 @@ def compare(aligned: Aligned, categories: tuple[Category, ...]) -> Compared:
     )
 
 
+def _or_nan(value: float | None) -> float:
+    return math.nan if value is None else value
+
+
 def _summary_row(cat: Category, compared: Compared, n_skipped: int) -> dict:
+    box = box_stats(compared.frame[cat.short], compared.frame["code"])
     pct = compared.frame[cat.short]
     pct = pct[np.isfinite(pct)]
     n = int(len(pct))
@@ -283,11 +288,16 @@ def _summary_row(cat: Category, compared: Compared, n_skipped: int) -> dict:
         "n_compared": n,
         "mean_diff_pct": float(pct.mean()) if n else math.nan,
         "median_diff_pct": float(pct.median()) if n else math.nan,
+        "q1_diff_pct": _or_nan(box.q1),
+        "q3_diff_pct": _or_nan(box.q3),
         "std_diff_pct": float(pct.std()) if n > 1 else math.nan,
         "within_1pct": int((pct.abs() <= 1).sum()),
         "within_5pct": int((pct.abs() <= 5).sum()),
         "outliers_gt5pct": int((pct.abs() > 5).sum()),
         "max_abs_diff_pct": float(pct.abs().max()) if n else math.nan,
+        "whisker_lo": _or_nan(box.lo),
+        "whisker_hi": _or_nan(box.hi),
+        "n_outliers": box.n_outliers,
         "n_near_zero_floored": compared.suppressed[cat.short]["near_zero"],
         "n_fold_capped": compared.suppressed[cat.short]["fold_capped"],
         "n_unit_skipped": n_skipped,
@@ -295,7 +305,8 @@ def _summary_row(cat: Category, compared: Compared, n_skipped: int) -> dict:
 
 
 def summarise(compared: Compared, categories: tuple[Category, ...]) -> pd.DataFrame:
-    """One row per category over the finite pct values; ``n_unit_skipped`` is the number
-    of unit-skipped processes and is repeated on every row."""
+    """One row per category over the finite pct values (quartiles, whisker ends and the
+    outlier count as in ``box_stats``); ``n_unit_skipped`` is the number of unit-skipped
+    processes and is repeated on every row."""
     n_skipped = int((compared.aligned.frame["resolution"] == UNIT_SKIPPED).sum())
     return pd.DataFrame([_summary_row(cat, compared, n_skipped) for cat in categories])

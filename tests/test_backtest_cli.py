@@ -26,8 +26,17 @@ def test_run_backtest_writes_everything(files_export, bafu_xlsx, tmp_path):
         "outlier_reasons.json",
         "run_report.json",
         "backtest/summary.parquet",
+        "boxes.json",
+        "worst/climate.json",
+        "worst/radiation.json",
     ):
         assert (tmp_path / "dash" / name).is_file()
+    boxes = json.loads((tmp_path / "dash" / "boxes.json").read_text())
+    assert boxes["sectors"] == ["all", "electricity"] and boxes["categories"] == [
+        "climate",
+        "radiation",
+    ]
+    assert boxes["boxes"]["all"]["climate"]["n"] == 2
     reasons = json.loads((tmp_path / "dash" / "outlier_reasons.json").read_text())
     assert "radiation" in reasons and "impact_level" in reasons["radiation"]
     vs = pd.read_csv(tmp_path / "dash" / "vs_bafu.csv", keep_default_na=False)
@@ -41,6 +50,10 @@ def test_run_backtest_writes_everything(files_export, bafu_xlsx, tmp_path):
     assert set(report["timings_s"]) >= {"reference_s", "score_s", "check_s"}
     text = render_summary(result)
     assert "mapped 2, unmatched 0, unit skipped 0" in text and "climate" in text
+    header = text.splitlines()[2]
+    for column in ("median", "q1", "q3", "outliers", "max_abs"):
+        assert column in header, column
+    assert "within_5pct" not in header
 
 
 def test_cli_backtest_with_existing_export(files_export, bafu_xlsx, tmp_path, capsys):

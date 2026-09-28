@@ -133,3 +133,18 @@ def test_write_logs_project_creation_and_method_progress(bw_project, result, cap
     caplog.clear()
     writer.write(result, project="fresh-project", overwrite=True)
     assert "creating Brightway project" not in caplog.text
+
+
+def test_write_refuses_bw2data_4_next_to_old_bw2io_before_touching_projects(
+    bw_project, result, monkeypatch
+):
+    """The guard runs before ``set_current``: nothing is created, the fix is named."""
+    from sentier_brightway import preflight
+
+    monkeypatch.setattr(preflight, "_installed_version", lambda name: "0.8.12")
+    monkeypatch.setattr(bd, "__version__", "4.7")
+    with pytest.raises(
+        preflight.IncompatibleEnvironmentError, match='pip install -U "bw2io>=0.9.3"'
+    ):
+        writer.write(result, project="never-created", overwrite=False)
+    assert "never-created" not in bd.projects

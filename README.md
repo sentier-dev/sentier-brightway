@@ -47,6 +47,8 @@ uv pip install git+https://github.com/sentier-dev/sentier-brightway
 
 Link your own activities to `bafu-2026` processes and `ef-3.1-biosphere` flows, then score with stock bw2calc. In Activity Browser, reload the project after the install; the methods sit under `sentier` > `EF v3.1`.
 
+`db` works on both Brightway generations (bw2data 3.x with Activity Browser 2.x, bw2data 4.x with Activity Browser 3.x). One mix is refused before the project is opened: bw2data 4 next to bw2io < 0.9, which bw2data itself crashes on while opening a project (`TypeError: '<' not supported between instances of 'str' and 'tuple'`). The fix is `pip install -U "bw2io>=0.9.3"` in that environment.
+
 ### Plain files
 
 | Path | Content |

@@ -6,6 +6,7 @@ import logging
 
 from .build import BoundMethod, BuildResult
 from .constants import BIOSPHERE_DB, INVENTORY_DB, METHOD_PREFIX, RESIDUAL_DB
+from .preflight import check_environment
 
 _ORDER = (BIOSPHERE_DB, RESIDUAL_DB, INVENTORY_DB)  # targets before the nodes that link to them
 log = logging.getLogger(__name__)
@@ -80,6 +81,7 @@ def write(result: BuildResult, project: str, overwrite: bool = False) -> None:
     the write then fails part-way the project holds a partial set, and re-running with
     ``overwrite=True`` (CLI: ``--overwrite``) is the recovery step."""
     bd = _bd()
+    check_environment(bd)  # bw2data 4 + bw2io < 0.9 would crash inside set_current
     if project not in bd.projects:
         log.info("creating Brightway project %r", project)
     bd.projects.set_current(project)

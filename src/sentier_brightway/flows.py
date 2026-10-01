@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from ._frames import codes_from_iris, data_root_error, require_columns
-from .constants import BAFU_SOURCE_IRI, EF_SOURCE_IRI, REPO_VOCAB
+from .constants import DEFAULT_SOURCE, EF_SOURCE_IRI, REPO_VOCAB, source_iri
 
 SHARD_COLUMNS = frozenset(
     {"iri", "pref_label", "source", "compartment", "sub_compartment", "cas_number"}
@@ -59,6 +59,12 @@ def load_ef_flows(data_root: Path) -> pd.DataFrame:
     return _flows_for(data_root, EF_SOURCE_IRI)
 
 
+def load_source_flows(data_root: Path, source: str = DEFAULT_SOURCE) -> pd.DataFrame:
+    """Flows of one inventory source (vocab Source IRI slug == inventory ``source`` id):
+    same columns; ``categories`` = (compartment, sub_compartment)."""
+    return _flows_for(data_root, source_iri(source))
+
+
 def load_bafu_flows(data_root: Path) -> pd.DataFrame:
-    """BAFU-2026 flows: same columns; ``categories`` = (compartment, sub_compartment)."""
-    return _flows_for(data_root, BAFU_SOURCE_IRI)
+    """BAFU-2026 flows; kept for compatibility, same as ``load_source_flows(root)``."""
+    return load_source_flows(data_root, DEFAULT_SOURCE)

@@ -2,8 +2,10 @@ import dataclasses
 
 import pytest
 
-from sentier_brightway.constants import CITATION
+from sentier_brightway.constants import DEFAULT_SOURCE, citation
 from sentier_brightway.report import Coverage, render
+
+CITATION = citation(DEFAULT_SOURCE)
 
 
 def test_ratios_and_rendering():
@@ -20,7 +22,7 @@ def test_ratios_and_rendering():
     assert cov.flow_share == 2 / 3
     assert cov.exchange_share == 0.75
     text = render(cov)
-    assert "2/3 BAFU flows" in text
+    assert "2/3 bafu-2026 flows" in text
     assert "3/4 biosphere exchanges" in text
     assert "emissions to air: 1" in text
     assert "1 of the linked flows point at EF flows with no factor" in text

@@ -19,7 +19,7 @@ def test_cli_coverage_prints_report_and_citation(data_root, capsys):
     rc = cli.main(["coverage", "--data-root", str(data_root), "--skip-nomenclature"])
     out = capsys.readouterr().out
     assert rc == 0
-    assert "2/3 BAFU flows" in out and "BAFU:2026" in out
+    assert "2/3 bafu-2026 flows" in out and "BAFU:2026" in out
 
 
 def test_cli_coverage_reports_unit_conflicts_once(data_root, capsys, recwarn):

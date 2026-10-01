@@ -34,15 +34,17 @@ uv pip install git+https://github.com/sentier-dev/sentier-brightway
 | `uv run sentier-brightway files --out DIR` | Writes the same build as plain files (parquet + bw_processing datapackages). No bw2data needed. |
 | `uv run sentier-brightway coverage` | Prints how many BAFU flows link to EF 3.1, without touching Brightway. |
 | `uv run sentier-brightway backtest --out DIR` | Scores every process, compares with BAFU's own openLCA results, writes a dashboard. |
-| Python API | `import_bafu_db(project)`, `import_bafu_files(out_dir)` and `backtest.run_backtest(files_dir, xlsx, out_dir)` in `sentier_brightway`. |
+| Python API | `import_db(project)`, `import_files(out_dir)` and `backtest.run_backtest(files_dir, xlsx, out_dir)` in `sentier_brightway`; `import_bafu_db` / `import_bafu_files` are the same functions under their original names. |
+
+Every command installs one inventory **source**: the `source` tag that sentier-inventory puts on each process row (`bafu-2026` by default, `--source` to choose another). The inventory and residual databases are named after it, so a second source installs next to BAFU instead of over it.
 
 ### Brightway project
 
 | Object | Content |
 |---|---|
-| database `bafu-2026` | 11,947 BAFU-2026 v1 processes |
-| database `ef-3.1-biosphere` | EF 3.1 elementary flows, with BAFU emissions relinked onto them |
-| database `bafu-2026-residual` | BAFU flows with no EF 3.1 counterpart (kept, no factor) |
+| database `<source>` (`bafu-2026`) | the source's processes: 11,947 BAFU-2026 v1 processes, each carrying `source` and `source_version` |
+| database `ef-3.1-biosphere` | EF 3.1 elementary flows, with the source's emissions relinked onto them |
+| database `<source>-residual` (`bafu-2026-residual`) | source flows with no EF 3.1 counterpart (kept, no factor) |
 | methods `("sentier", "EF v3.1", <category>)` | 25 EF 3.1 impact categories |
 
 Link your own activities to `bafu-2026` processes and `ef-3.1-biosphere` flows, then score with stock bw2calc. In Activity Browser, reload the project after the install; the methods sit under `sentier` > `EF v3.1`.
@@ -55,8 +57,8 @@ Link your own activities to `bafu-2026` processes and `ef-3.1-biosphere` flows, 
 |---|---|
 | `registry/` | processes, biosphere, exchanges, methods, characterization factors (parquet) |
 | `mappings/` | the BAFU -> EF 3.1 mapping files, verbatim |
-| `bw_package/` | bw_processing datapackages: the inventory and one per method |
-| `manifest.json` | data pins, citation, coverage, row counts |
+| `bw_package/` | bw_processing datapackages: `<source>/` for the inventory and `methods/<slug>/` one per method |
+| `manifest.json` | source and source_version, database names, data pins, citation, coverage, row counts |
 
 Every table shares an integer `bw_id`, which is also the matrix index of the datapackages. Stock bw2calc reads them: `bw_processing.load_datapackage` on `bw_package/bafu-2026` plus one `bw_package/methods/<slug>` feeds `bw2calc.LCA({bw_id: 1.0}, data_objs=[...])`.
 `sentier_brightway.datapackage.score(out, code, "ef-3.1:climate-change")` does the same in one call (CH low-voltage electricity: 0.0320835 kg CO2 eq per kWh).
@@ -79,6 +81,7 @@ Click a box (or its label) for the worst-200 list of that category, sortable and
 
 | Flag | Commands | Effect |
 |---|---|---|
+| `--source ID` | all | Inventory source to install (`processes.source` in sentier-inventory); names the databases. Default `bafu-2026`. |
 | `--overwrite` | db, files | Replace a previous install or export. |
 | `--data-root DIR` | all | Read the Sentier data repos from local clones under `DIR` instead of downloading (`$SENTIER_DATA_ROOT` works too). |
 | `--skip-nomenclature` | all | Leave BAFU flows whose EF counterpart carries no factor in the residual database. |

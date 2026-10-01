@@ -5,10 +5,12 @@ import pytest
 from sentier_brightway import files
 from sentier_brightway.bridge import load_bridge
 from sentier_brightway.build import build
-from sentier_brightway.constants import BRIDGE_FOLDER, CITATION
+from sentier_brightway.constants import BRIDGE_FOLDER, DEFAULT_SOURCE, citation
 from sentier_brightway.flows import load_bafu_flows, load_ef_flows
 from sentier_brightway.inventory import load_inventory
 from sentier_brightway.methods import load_methods
+
+CITATION = citation(DEFAULT_SOURCE)
 
 
 @pytest.fixture

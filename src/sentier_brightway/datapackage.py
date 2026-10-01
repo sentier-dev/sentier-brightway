@@ -2,7 +2,9 @@
 
 Layout under the ``bw_package`` folder::
 
-    bw_package/bafu-2026/                 technosphere + biosphere vectors (one datapackage)
+    bw_package/<source>/                  technosphere + biosphere vectors (one datapackage,
+                                          folder named after the inventory source, e.g.
+                                          ``bafu-2026``)
     bw_package/methods/<method_slug>/     one characterization datapackage per method
 
 Semantics follow bw2calc: technosphere *inputs* carry ``flip=True`` (bw2calc negates them
@@ -27,10 +29,8 @@ import bw_processing as bwp
 import numpy as np
 import pandas as pd
 
-from .constants import INVENTORY_DB
 from .registry import Registry, load_registry
 
-INVENTORY_DIR = INVENTORY_DB
 METHODS_DIR = "methods"
 REGISTRY_DIR = "registry"
 PACKAGE_DIR = "bw_package"
@@ -73,13 +73,21 @@ def _check_exchange_ids(registry: Registry) -> None:
             raise ValueError(f"exchanges.{column} not in registry nodes: {dangling[:10]}")
 
 
-def _write_inventory(registry: Registry, folder: Path) -> None:
-    dp = _new_datapackage(folder, INVENTORY_DB)
+def inventory_name(registry: Registry) -> str:
+    """The inventory database name: the single ``database`` value of the process table."""
+    names = sorted(set(registry.processes["database"]))
+    if len(names) != 1:
+        raise ValueError(f"registry processes span {len(names)} databases, expected 1: {names}")
+    return names[0]
+
+
+def _write_inventory(registry: Registry, folder: Path, name: str) -> None:
+    dp = _new_datapackage(folder, name)
     ex = registry.exchanges
     techno = ex[ex["type"].isin(TECHNOSPHERE_TYPES)]
     dp.add_persistent_vector(
         matrix="technosphere_matrix",
-        name=f"{INVENTORY_DB}-technosphere",
+        name=f"{name}-technosphere",
         indices_array=_indices(techno["input_bw_id"], techno["process_bw_id"]),
         data_array=techno["amount"].to_numpy(dtype="float64"),
         flip_array=(techno["type"] == "technosphere").to_numpy(dtype=bool),
@@ -87,7 +95,7 @@ def _write_inventory(registry: Registry, folder: Path) -> None:
     bio = ex[ex["type"] == "biosphere"]
     dp.add_persistent_vector(
         matrix="biosphere_matrix",
-        name=f"{INVENTORY_DB}-biosphere",
+        name=f"{name}-biosphere",
         indices_array=_indices(bio["input_bw_id"], bio["process_bw_id"]),
         data_array=bio["amount"].to_numpy(dtype="float64"),
     )
@@ -122,21 +130,36 @@ def write_datapackages(registry: Registry, root: Path) -> DatapackagePaths:
     missing = [m for m in method_ids if m not in known]
     if missing:
         raise ValueError(f"methods without characterization factors: {missing}")
-    shutil.rmtree(root / INVENTORY_DIR, ignore_errors=True)
-    shutil.rmtree(root / METHODS_DIR, ignore_errors=True)
-    _write_inventory(registry, root / INVENTORY_DIR)
+    name = inventory_name(registry)
+    if root.is_dir():  # a rewrite replaces everything, whatever source wrote it before
+        for child in root.iterdir():
+            shutil.rmtree(child, ignore_errors=True)
+    _write_inventory(registry, root / name, name)
     methods = {}
     for method_id in method_ids:
         folder = root / METHODS_DIR / method_slug(method_id)
         _write_method(cfs[cfs["method_id"] == method_id], method_id, folder)
         methods[method_id] = folder
-    return DatapackagePaths(inventory=root / INVENTORY_DIR, methods=methods)
+    return DatapackagePaths(inventory=root / name, methods=methods)
+
+
+def inventory_folder(out_dir: Path) -> Path:
+    """The one ``bw_package/<source>/`` folder of an export (``methods/`` is the other)."""
+    root = Path(out_dir) / PACKAGE_DIR
+    candidates = sorted(p for p in root.iterdir() if p.is_dir() and p.name != METHODS_DIR)
+    if len(candidates) != 1:
+        raise FileNotFoundError(
+            f"expected exactly one inventory datapackage folder under {root}, "
+            f"found {[p.name for p in candidates]}"
+        )
+    return candidates[0]
 
 
 def load_inventory_datapackage(out_dir: Path) -> bwp.Datapackage:
     """``out_dir`` is the folder holding ``bw_package/``."""
-    folder = Path(out_dir) / PACKAGE_DIR / INVENTORY_DIR
-    return bwp.load_datapackage(bwp.generic_directory_filesystem(dirpath=folder))
+    return bwp.load_datapackage(
+        bwp.generic_directory_filesystem(dirpath=inventory_folder(out_dir))
+    )
 
 
 def load_method_datapackage(out_dir: Path, method_id: str) -> bwp.Datapackage:

@@ -11,7 +11,7 @@ from typing import Mapping
 import pandas as pd
 
 from .bridge import BridgeEntry
-from .constants import BIOSPHERE_DB, INVENTORY_DB, RESIDUAL_DB
+from .constants import BIOSPHERE_DB, inventory_db, residual_db
 from .inventory import Inventory
 from .methods import MethodSpec
 from .report import Coverage
@@ -42,6 +42,10 @@ class BuildResult:
     inventory: Mapping[Key, dict]
     methods: tuple[BoundMethod, ...]
     coverage: Coverage
+    source: str = "bafu-2026"  # inventory source id the names below derive from
+    source_version: str | None = None
+    inventory_db: str = "bafu-2026"
+    residual_db: str = "bafu-2026-residual"
 
 
 def _is_null(value: object) -> bool:
@@ -121,8 +125,12 @@ def build_biosphere(
 
 
 def build_residual(
-    unmapped_codes: set[str], bafu_flows: pd.DataFrame, exchanges: pd.DataFrame
+    unmapped_codes: set[str],
+    bafu_flows: pd.DataFrame,
+    exchanges: pd.DataFrame,
+    database: str = residual_db("bafu-2026"),
 ) -> dict[Key, dict]:
+    """One node per unmapped source flow, keyed into ``database`` (the residual db)."""
     vocab = bafu_flows.set_index("code")
     bio = exchanges[exchanges["flow_type"] == "biosphere"]
     by_code = bio.drop_duplicates("flow").set_index("flow")
@@ -130,7 +138,7 @@ def build_residual(
     for code in sorted(unmapped_codes):
         name = str(vocab["name"].get(code, by_code["flow_name"].get(code, code)))
         cats = tuple(vocab["categories"].get(code, ()))
-        nodes[(RESIDUAL_DB, code)] = {
+        nodes[(database, code)] = {
             "name": name,
             "categories": cats,
             "unit": normalize_unit(by_code["unit"].get(code)),
@@ -193,15 +201,32 @@ def _uncertainty(
     return out
 
 
-def _link(pid: str, flow: str, flow_type: str, bridge: Mapping[str, BridgeEntry]) -> tuple:
+@dataclass(frozen=True)
+class Databases:
+    """Target database names for one inventory source."""
+
+    inventory: str
+    residual: str
+
+    @classmethod
+    def for_source(cls, source: str) -> "Databases":
+        return cls(inventory=inventory_db(source), residual=residual_db(source))
+
+
+_DEFAULT_DBS = Databases.for_source("bafu-2026")
+
+
+def _link(
+    pid: str, flow: str, flow_type: str, bridge: Mapping[str, BridgeEntry], dbs: Databases
+) -> tuple:
     """``(input key, exchange type, target unit or None, conversion factor)`` for one row."""
     if flow_type == "production":
-        return (INVENTORY_DB, pid), "production", None, 1.0
+        return (dbs.inventory, pid), "production", None, 1.0
     if flow_type == "technosphere":
-        return (INVENTORY_DB, flow), "technosphere", None, 1.0
+        return (dbs.inventory, flow), "technosphere", None, 1.0
     entry = bridge.get(flow)
     if entry is None:
-        return (RESIDUAL_DB, flow), "biosphere", None, 1.0
+        return (dbs.residual, flow), "biosphere", None, 1.0
     return (
         (BIOSPHERE_DB, entry.target_code),
         "biosphere",
@@ -252,13 +277,13 @@ def _check_links(processes: pd.DataFrame, exchanges: pd.DataFrame) -> None:
 
 
 def _exchanges_by_process(
-    exchanges: pd.DataFrame, bridge: Mapping[str, BridgeEntry]
+    exchanges: pd.DataFrame, bridge: Mapping[str, BridgeEntry], dbs: Databases
 ) -> dict[str, list[dict]]:
     """One column-wise pass over the exchange frame; far cheaper than per-row ``iterrows``."""
     grouped: dict[str, list[dict]] = defaultdict(list)
     columns = [_column(exchanges, name) for name in EXCHANGE_FIELDS]
     for pid, flow, name, ftype, amount, unit, utype, loc, scale, mn, mx in zip(*columns):
-        key, etype, target_unit, factor = _link(pid, flow, ftype, bridge)
+        key, etype, target_unit, factor = _link(pid, flow, ftype, bridge, dbs)
         scaled = float(amount) * factor
         grouped[pid].append(
             {
@@ -273,9 +298,14 @@ def _exchanges_by_process(
     return grouped
 
 
-def build_inventory(inventory: Inventory, bridge: Mapping[str, BridgeEntry]) -> dict[Key, dict]:
+def build_inventory(
+    inventory: Inventory, bridge: Mapping[str, BridgeEntry], dbs: Databases | None = None
+) -> dict[Key, dict]:
+    """Process nodes keyed into ``dbs.inventory`` (defaults to the names for
+    ``inventory.source``), each carrying its ``source`` / ``source_version`` tag."""
+    dbs = dbs or Databases.for_source(inventory.source)
     _check_links(inventory.processes, inventory.exchanges)
-    grouped = _exchanges_by_process(inventory.exchanges, bridge)
+    grouped = _exchanges_by_process(inventory.exchanges, bridge, dbs)
     nodes = {}
     for p in inventory.processes.itertuples(index=False):
         node = {
@@ -285,12 +315,16 @@ def build_inventory(inventory: Inventory, bridge: Mapping[str, BridgeEntry]) -> 
             "location": str(p.location),
             "type": "process",
             "production amount": float(p.reference_amount),
+            "source": str(getattr(p, "source", inventory.source)),
             "exchanges": grouped.get(p.process_id, []),
         }
+        version = getattr(p, "source_version", None)
+        if not _is_null(version):
+            node["source_version"] = str(version)
         comment = getattr(p, "comment", None)
         if not _is_null(comment):
             node["comment"] = str(comment)
-        nodes[(INVENTORY_DB, p.process_id)] = node
+        nodes[(dbs.inventory, p.process_id)] = node
     return nodes
 
 
@@ -318,6 +352,8 @@ def _coverage(
     processes: int,
     methods: int,
     unit_conflicts: int,
+    dbs: Databases = _DEFAULT_DBS,
+    source: str = "bafu-2026",
 ) -> Coverage:
     """Coverage over ``bio`` (the biosphere exchange rows) and the ``unmapped`` codes."""
     used = set(bio["flow"])
@@ -335,6 +371,9 @@ def _coverage(
         processes=processes,
         methods=methods,
         unit_conflicts=unit_conflicts,
+        source=source,
+        inventory_db=dbs.inventory,
+        residual_db=dbs.residual,
     )
 
 
@@ -349,10 +388,11 @@ def build(
     unmapped = set(bio["flow"]) - set(bridge.keys())
     units, conflicts = _bridge_units(bridge)
     _warn_unit_conflicts(conflicts)
+    dbs = Databases.for_source(inventory.source)
     return BuildResult(
         biosphere=build_biosphere(ef_flows, units, methods),
-        residual=build_residual(unmapped, bafu_flows, inventory.exchanges),
-        inventory=build_inventory(inventory, bridge),
+        residual=build_residual(unmapped, bafu_flows, inventory.exchanges, dbs.residual),
+        inventory=build_inventory(inventory, bridge, dbs),
         methods=_bind_methods(methods),
         coverage=_coverage(
             bio,
@@ -362,5 +402,11 @@ def build(
             processes=len(inventory.processes),
             methods=len(methods),
             unit_conflicts=len(conflicts),
+            dbs=dbs,
+            source=inventory.source,
         ),
+        source=inventory.source,
+        source_version=inventory.source_version,
+        inventory_db=dbs.inventory,
+        residual_db=dbs.residual,
     )

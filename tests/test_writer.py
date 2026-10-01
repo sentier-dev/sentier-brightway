@@ -8,11 +8,19 @@ bc = pytest.importorskip("bw2calc")
 from sentier_brightway import writer  # noqa: E402
 from sentier_brightway.bridge import load_bridge  # noqa: E402
 from sentier_brightway.build import build  # noqa: E402
-from sentier_brightway.constants import BIOSPHERE_DB, INVENTORY_DB, RESIDUAL_DB  # noqa: E402
+from sentier_brightway.constants import (  # noqa: E402
+    BIOSPHERE_DB,
+    DEFAULT_SOURCE,
+    inventory_db,
+    residual_db,
+)
 from sentier_brightway.flows import load_bafu_flows, load_ef_flows  # noqa: E402
 from sentier_brightway.inventory import load_inventory  # noqa: E402
 from sentier_brightway.methods import load_methods  # noqa: E402
 from tests.conftest import B3, P1, P1_CLIMATE_SCORE, P1_IONISING_SCORE  # noqa: E402
+
+INVENTORY_DB = inventory_db(DEFAULT_SOURCE)
+RESIDUAL_DB = residual_db(DEFAULT_SOURCE)
 
 pytestmark = pytest.mark.bw
 

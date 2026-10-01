@@ -12,11 +12,14 @@ from sentier_brightway.build import (
     build_biosphere,
     build_inventory,
 )
-from sentier_brightway.constants import BIOSPHERE_DB, INVENTORY_DB, RESIDUAL_DB
+from sentier_brightway.constants import BIOSPHERE_DB, DEFAULT_SOURCE, inventory_db, residual_db
 from sentier_brightway.flows import load_bafu_flows, load_ef_flows
 from sentier_brightway.inventory import Inventory, load_inventory
 from sentier_brightway.methods import load_methods
 from tests.conftest import B3, E1, E2, E3, P1, P2
+
+INVENTORY_DB = inventory_db(DEFAULT_SOURCE)
+RESIDUAL_DB = residual_db(DEFAULT_SOURCE)
 
 
 def _build(data_root, include_nomenclature: bool) -> BuildResult:

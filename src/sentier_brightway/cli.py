@@ -8,20 +8,32 @@ import sys
 import warnings
 from pathlib import Path
 
-from . import coverage, import_bafu_db, import_bafu_files, render
-from .constants import CITATION
+from . import coverage, import_db, import_files, render
+from .constants import DEFAULT_SOURCE, citation
 from .fetch import FetchError
 
 # files.ExistingOutputError is a RuntimeError and FileNotFoundError/NotADirectoryError are
 # OSErrors, so the except tuple in main() covers them
 
 
+def _add_source(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--source",
+        default=DEFAULT_SOURCE,
+        help="inventory source id to install (processes.source in sentier-inventory); "
+        f"names the inventory database (default: {DEFAULT_SOURCE})",
+    )
+
+
 def _parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="sentier-brightway")
     sub = p.add_subparsers(dest="command", required=True)
 
-    db = sub.add_parser("db", help="write BAFU-2026 + EF 3.1 into a Brightway project (bw2data)")
+    db = sub.add_parser(
+        "db", help="write one inventory source (default BAFU-2026) + EF 3.1 into a bw2data project"
+    )
     db.add_argument("--project", required=True, help="bw2data project name")
+    _add_source(db)
     db.add_argument("--overwrite", action="store_true", help="replace existing databases")
     db.add_argument("--data-root", default=None, help="local ~/dds-shaped folder (skips download)")
     db.add_argument(
@@ -34,6 +46,7 @@ def _parser() -> argparse.ArgumentParser:
         "files", help="write registry parquet + mappings + datapackages to a folder (no bw2data)"
     )
     fil.add_argument("--out", required=True, help="output folder")
+    _add_source(fil)
     fil.add_argument("--overwrite", action="store_true", help="replace a non-empty output folder")
     fil.add_argument(
         "--no-datapackages",
@@ -50,6 +63,7 @@ def _parser() -> argparse.ArgumentParser:
     )
 
     cov = sub.add_parser("coverage", help="print linking coverage, no Brightway needed")
+    _add_source(cov)
     cov.add_argument("--data-root", default=None)
     cov.add_argument("--skip-nomenclature", action="store_true")
 
@@ -70,6 +84,7 @@ def _parser() -> argparse.ArgumentParser:
         help="existing file-mode export; omitted = export into <out>/files first",
     )
     bt.add_argument("--data-root", default=None, help="local ~/dds-shaped folder (skips download)")
+    _add_source(bt)
     bt.add_argument("--skip-nomenclature", action="store_true")
     bt.add_argument("--fixture-categories", action="store_true", help=argparse.SUPPRESS)
     return p
@@ -82,13 +97,17 @@ def _run_backtest(args: argparse.Namespace, include: bool) -> str:
     files_dir = Path(args.files) if args.files else Path(args.out) / "files"
     if not args.files:
         # <out>/files is ours: overwrite only ever replaces a previous export there
-        import_bafu_files(
-            files_dir, data_root=args.data_root, include_nomenclature=include, overwrite=True
+        import_files(
+            files_dir,
+            data_root=args.data_root,
+            include_nomenclature=include,
+            overwrite=True,
+            source=args.source,
         )
     cats = bt.FIXTURE_CATEGORIES if args.fixture_categories else bt.CATEGORIES
     xlsx = Path(args.xlsx) if args.xlsx else bt.DEFAULT_XLSX.expanduser()
     result = bt.run_backtest(files_dir, xlsx, args.out, categories=cats)
-    return f"{bt.render_summary(result)}\n{CITATION}"
+    return f"{bt.render_summary(result)}\n{citation(args.source)}"
 
 
 def _run(args: argparse.Namespace) -> str:
@@ -97,21 +116,23 @@ def _run(args: argparse.Namespace) -> str:
     if args.command == "backtest":
         return _run_backtest(args, include)
     if args.command == "coverage":
-        cov = coverage(data_root=args.data_root, include_nomenclature=include)
+        cov = coverage(data_root=args.data_root, include_nomenclature=include, source=args.source)
     elif args.command == "files":
-        cov = import_bafu_files(
+        cov = import_files(
             args.out,
             data_root=args.data_root,
             include_nomenclature=include,
             datapackages=not args.no_datapackages,
             overwrite=args.overwrite,
+            source=args.source,
         )
     else:
-        cov = import_bafu_db(
+        cov = import_db(
             args.project,
             overwrite=args.overwrite,
             data_root=args.data_root,
             include_nomenclature=include,
+            source=args.source,
         )
     text = render(cov)
     if args.command == "files":

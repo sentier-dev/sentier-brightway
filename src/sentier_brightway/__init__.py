@@ -8,16 +8,20 @@ from . import backtest
 from ._version import __version__
 from .bridge import load_bridge
 from .build import BuildResult, build
+from .constants import DEFAULT_SOURCE
 from .fetch import resolve_data_root
-from .flows import load_bafu_flows, load_ef_flows
+from .flows import load_ef_flows, load_source_flows
 from .inventory import load_inventory
 from .methods import load_methods
 from .report import Coverage, render
 
 __all__ = [
     "__version__",
+    "import_db",
+    "import_files",
     "import_bafu_db",
     "import_bafu_files",
+    "DEFAULT_SOURCE",
     "coverage",
     "assemble",
     "render",
@@ -27,39 +31,50 @@ __all__ = [
 ]
 
 
-def _assemble_from_root(root: Path, include_nomenclature: bool) -> BuildResult:
+def _assemble_from_root(root: Path, include_nomenclature: bool, source: str) -> BuildResult:
     """Build from an already resolved data root."""
     return build(
-        inventory=load_inventory(root),
+        inventory=load_inventory(root, source=source),
         ef_flows=load_ef_flows(root),
-        bafu_flows=load_bafu_flows(root),
+        bafu_flows=load_source_flows(root, source),
         bridge=load_bridge(root, include_nomenclature=include_nomenclature),
         methods=load_methods(root),
     )
 
 
 def assemble(
-    data_root: Path | str | None = None, include_nomenclature: bool = True
+    data_root: Path | str | None = None,
+    include_nomenclature: bool = True,
+    source: str = DEFAULT_SOURCE,
 ) -> BuildResult:
-    """Read the Sentier data (local root or verified download) and build the node dicts."""
-    return _assemble_from_root(resolve_data_root(data_root), include_nomenclature)
+    """Read the Sentier data (local root or verified download) and build the node dicts.
+
+    ``source`` selects the inventory rows (``processes.source`` in sentier-inventory) and
+    names the inventory and residual databases after it."""
+    return _assemble_from_root(resolve_data_root(data_root), include_nomenclature, source)
 
 
-def coverage(data_root: Path | str | None = None, include_nomenclature: bool = True) -> Coverage:
+def coverage(
+    data_root: Path | str | None = None,
+    include_nomenclature: bool = True,
+    source: str = DEFAULT_SOURCE,
+) -> Coverage:
     """Linking coverage without touching Brightway."""
-    return assemble(data_root, include_nomenclature).coverage
+    return assemble(data_root, include_nomenclature, source).coverage
 
 
-def import_bafu_db(
+def import_db(
     project: str,
     overwrite: bool = False,
     data_root: Path | str | None = None,
     include_nomenclature: bool = True,
+    source: str = DEFAULT_SOURCE,
 ) -> Coverage:
-    """Install BAFU-2026 + EF 3.1 biosphere + EF 3.1 methods into ``project``.
+    """Install one inventory ``source`` (default BAFU-2026) + EF 3.1 biosphere + EF 3.1
+    methods into ``project``. The inventory database is named after ``source``.
 
     Run inside the Python environment where Brightway / Activity Browser is installed.
-    ``include_nomenclature=False`` keeps BAFU flows whose EF counterpart has no factor in
+    ``include_nomenclature=False`` keeps source flows whose EF counterpart has no factor in
     the residual database instead of relinking them.
 
     With ``overwrite`` the previous install is removed before the new one is written; if
@@ -68,19 +83,32 @@ def import_bafu_db(
     """
     from .writer import write  # bw2data import stays lazy
 
-    result = assemble(data_root, include_nomenclature)
+    result = assemble(data_root, include_nomenclature, source)
     write(result, project=project, overwrite=overwrite)
     return result.coverage
 
 
-def import_bafu_files(
+def import_bafu_db(
+    project: str,
+    overwrite: bool = False,
+    data_root: Path | str | None = None,
+    include_nomenclature: bool = True,
+    source: str = DEFAULT_SOURCE,
+) -> Coverage:
+    """Thin wrapper over ``import_db`` kept under its original name."""
+    return import_db(project, overwrite, data_root, include_nomenclature, source)
+
+
+def import_files(
     out_dir: Path | str,
     data_root: Path | str | None = None,
     include_nomenclature: bool = True,
     datapackages: bool = True,
     overwrite: bool = False,
+    source: str = DEFAULT_SOURCE,
 ) -> Coverage:
-    """Write BAFU-2026 + EF 3.1 as plain files instead of a bw2data project.
+    """Write one inventory ``source`` (default BAFU-2026) + EF 3.1 as plain files instead of a
+    bw2data project.
 
     ``out_dir`` receives ``registry/`` (parquet tables joined by integer ``bw_id``),
     ``mappings/`` (every JSON of the bridge folder, copied verbatim; ``manifest.bridge_packages``
@@ -99,7 +127,7 @@ def import_bafu_files(
     from .files import write_files
 
     root = resolve_data_root(data_root)
-    result = _assemble_from_root(root, include_nomenclature)
+    result = _assemble_from_root(root, include_nomenclature, source)
     write_files(
         result,
         data_root=root,
@@ -109,3 +137,15 @@ def import_bafu_files(
         include_nomenclature=include_nomenclature,
     )
     return result.coverage
+
+
+def import_bafu_files(
+    out_dir: Path | str,
+    data_root: Path | str | None = None,
+    include_nomenclature: bool = True,
+    datapackages: bool = True,
+    overwrite: bool = False,
+    source: str = DEFAULT_SOURCE,
+) -> Coverage:
+    """Thin wrapper over ``import_files`` kept under its original name."""
+    return import_files(out_dir, data_root, include_nomenclature, datapackages, overwrite, source)

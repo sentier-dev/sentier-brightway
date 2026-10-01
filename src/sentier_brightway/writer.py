@@ -5,11 +5,15 @@ from __future__ import annotations
 import logging
 
 from .build import BoundMethod, BuildResult
-from .constants import BIOSPHERE_DB, INVENTORY_DB, METHOD_PREFIX, RESIDUAL_DB
+from .constants import BIOSPHERE_DB, METHOD_PREFIX
 from .preflight import check_environment
 
-_ORDER = (BIOSPHERE_DB, RESIDUAL_DB, INVENTORY_DB)  # targets before the nodes that link to them
 log = logging.getLogger(__name__)
+
+
+def _order(result: BuildResult) -> tuple[str, str, str]:
+    """Write order: targets before the nodes that link to them."""
+    return (BIOSPHERE_DB, result.residual_db, result.inventory_db)
 
 
 class ExistingDatabaseError(RuntimeError):
@@ -27,21 +31,21 @@ def _bd():
     return bd
 
 
-def _guard(bd, overwrite: bool) -> None:
-    existing = [name for name in _ORDER if name in bd.databases]
+def _guard(bd, overwrite: bool, order: tuple[str, ...]) -> None:
+    existing = [name for name in order if name in bd.databases]
     if existing and not overwrite:
         raise ExistingDatabaseError(
             f"project already has {existing}; pass overwrite=True or choose another project"
         )
-    for name in reversed(_ORDER):  # dependents first
+    for name in reversed(order):  # dependents first
         if name in bd.databases:
             del bd.databases[name]
 
 
 def _write_databases(bd, result: BuildResult) -> None:
     bd.Database(BIOSPHERE_DB).write(dict(result.biosphere))
-    bd.Database(RESIDUAL_DB).write(dict(result.residual))
-    bd.Database(INVENTORY_DB).write(dict(result.inventory))
+    bd.Database(result.residual_db).write(dict(result.residual))
+    bd.Database(result.inventory_db).write(dict(result.inventory))
 
 
 def _write_methods(bd, methods: tuple[BoundMethod, ...], overwrite: bool) -> None:
@@ -65,10 +69,10 @@ def _write_methods(bd, methods: tuple[BoundMethod, ...], overwrite: bool) -> Non
         m.write(list(method.cfs))
 
 
-def _mark_dependents_dirty(bd) -> None:
+def _mark_dependents_dirty(bd, order: tuple[str, ...]) -> None:
     """Node ids change on every write, so other databases linking to ours must be
     reprocessed by bw2data before their next calculation."""
-    ours = set(_ORDER)
+    ours = set(order)
     for name in list(bd.databases):
         if name not in ours and ours & set(bd.databases[name].get("depends", [])):
             bd.databases.set_dirty(name)
@@ -85,16 +89,17 @@ def write(result: BuildResult, project: str, overwrite: bool = False) -> None:
     if project not in bd.projects:
         log.info("creating Brightway project %r", project)
     bd.projects.set_current(project)
-    _guard(bd, overwrite)
+    order = _order(result)
+    _guard(bd, overwrite, order)
     try:
         _write_databases(bd, result)
         _write_methods(bd, result.methods, overwrite)
     except Exception as exc:
         raise RuntimeError(
             f"install into project {project!r} failed part-way ({exc}); the project now holds "
-            f"a partial set of {list(_ORDER)}; re-run with overwrite=True (CLI: --overwrite)"
+            f"a partial set of {list(order)}; re-run with overwrite=True (CLI: --overwrite)"
         ) from exc
-    _mark_dependents_dirty(bd)
+    _mark_dependents_dirty(bd, order)
 
 
 def get_node(database: str, code: str):

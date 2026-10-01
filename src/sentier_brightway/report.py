@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .constants import BIOSPHERE_DB, CITATION, INVENTORY_DB, RESIDUAL_DB
+from .constants import BIOSPHERE_DB, DEFAULT_SOURCE, citation, inventory_db, residual_db
 
 
 @dataclass(frozen=True)
@@ -20,6 +20,10 @@ class Coverage:
     flows_nomenclature: int = 0
     # EF flows targeted by bridge entries that disagree on the target unit (first wins)
     unit_conflicts: int = 0
+    # inventory source the install was built from, and the database names derived from it
+    source: str = DEFAULT_SOURCE
+    inventory_db: str = inventory_db(DEFAULT_SOURCE)
+    residual_db: str = residual_db(DEFAULT_SOURCE)
 
     @property
     def flow_share(self) -> float:
@@ -39,17 +43,17 @@ def render(cov: Coverage) -> str:
             "(check sentier-mappings)"
         ]
     lines = [
-        f"Installed {INVENTORY_DB}: {cov.processes} processes",
+        f"Installed {cov.inventory_db}: {cov.processes} processes",
         f"Installed {BIOSPHERE_DB} and {cov.methods} EF 3.1 methods",
-        f"Linked {cov.flows_mapped}/{cov.flows_used} BAFU flows to EF 3.1 "
+        f"Linked {cov.flows_mapped}/{cov.flows_used} {cov.source} flows to EF 3.1 "
         f"({cov.flow_share:.1%}); {cov.exchange_rows_mapped}/{cov.exchange_rows} biosphere "
         f"exchanges ({cov.exchange_share:.1%})",
         f"  {cov.flows_nomenclature} of the linked flows point at EF flows with no factor "
         "(nomenclature only, impact zero)",
         *conflict_lines,
-        f"Unlinked flows kept in {RESIDUAL_DB} (no EF 3.1 counterpart in the bridge):",
+        f"Unlinked flows kept in {cov.residual_db} (no EF 3.1 counterpart in the bridge):",
         *residual_lines,
         "",
-        CITATION,
+        citation(cov.source),
     ]
     return "\n".join(lines)

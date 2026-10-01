@@ -50,6 +50,8 @@ def _write_inventory(root: Path) -> None:
             "reference_amount": [1.0, 1.0],
             "location": ["CH", "CH"],
             "process_type": ["unit", "unit"],
+            "source": ["bafu-2026", "bafu-2026"],
+            "source_version": ["v1", "v1"],
             "technology": ["grid", "grid"],
             "comment": ["BAFU category: electricity", "BAFU category: electricity"],
         }
@@ -150,7 +152,16 @@ def _write_inventory(root: Path) -> None:
     exchanges["maximum"] = exchanges["maximum"].astype("string")
     processes.to_parquet(sector / "processes.parquet", index=False)
     exchanges.to_parquet(sector / "exchanges.parquet", index=False)
-    (sector / "metadata.json").write_text(json.dumps({"sector": "electricity", "rank": 2}))
+    (sector / "metadata.json").write_text(
+        json.dumps(
+            {
+                "sector": "electricity",
+                "rank": 2,
+                "schema_version": "0.2.0",
+                "sources": ["bafu-2026"],
+            }
+        )
+    )
 
 
 def _vocab_frame(rows: list[dict]) -> pd.DataFrame:

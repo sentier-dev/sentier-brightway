@@ -13,7 +13,7 @@ from . import __version__
 from ._frames import data_root_error
 from .bridge import applied_packages
 from .build import BuildResult
-from .constants import BRIDGE_FOLDER, CITATION, REPO_MAPPINGS
+from .constants import BRIDGE_FOLDER, REPO_MAPPINGS, citation
 from .datapackage import PACKAGE_DIR, REGISTRY_DIR, write_datapackages
 from .fetch import load_packaged_manifest
 from .registry import build_registry, write_registry
@@ -88,7 +88,11 @@ def _manifest(
         "layout_version": LAYOUT_VERSION,
         "sentier_brightway_version": __version__,
         "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "citation": CITATION,
+        "source": result.source,
+        "source_version": result.source_version,
+        "inventory_db": result.inventory_db,
+        "residual_db": result.residual_db,
+        "citation": citation(result.source),
         "sources": _pins(),
         "bridge_folder": BRIDGE_FOLDER,
         "include_nomenclature": include_nomenclature,

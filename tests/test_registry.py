@@ -3,12 +3,15 @@ import pytest
 
 from sentier_brightway.bridge import load_bridge
 from sentier_brightway.build import build
-from sentier_brightway.constants import BIOSPHERE_DB, INVENTORY_DB, RESIDUAL_DB
+from sentier_brightway.constants import BIOSPHERE_DB, DEFAULT_SOURCE, inventory_db, residual_db
 from sentier_brightway.flows import load_bafu_flows, load_ef_flows
 from sentier_brightway.inventory import load_inventory
 from sentier_brightway.methods import load_methods
 from sentier_brightway.registry import Registry, build_registry, load_registry, write_registry
 from tests.conftest import B3, E1, P1, P2
+
+INVENTORY_DB = inventory_db(DEFAULT_SOURCE)
+RESIDUAL_DB = residual_db(DEFAULT_SOURCE)
 
 
 @pytest.fixture

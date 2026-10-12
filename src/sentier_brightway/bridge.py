@@ -16,6 +16,7 @@ from typing import Mapping
 
 from ._frames import data_root_error
 from .constants import BRIDGE_FOLDER, NOMENCLATURE_KIND_ORDER, REPO_MAPPINGS
+from .units import required_scale_factor
 
 SUPPORTED_SCHEMA_MAJOR = "0"
 
@@ -35,6 +36,9 @@ class BridgeEntry:
         factor = self.conversion_factor
         if isinstance(factor, bool) or not math.isfinite(factor) or factor <= 0:
             raise ValueError("conversion_factor must be positive and finite")
+        expected = required_scale_factor(self.source_unit, self.target_unit)
+        if expected is not None and not math.isclose(factor, expected, rel_tol=1e-12):
+            raise ValueError(f"conversion_factor {expected:g} is required for declared units")
 
 
 def _load_json(path: Path) -> dict:
@@ -73,6 +77,11 @@ def _entry_fields(entry: dict, path: Path, i: int) -> tuple[str, dict]:
         ) from exc
     if isinstance(cf, bool) or not math.isfinite(factor) or factor <= 0:
         raise ValueError(f"{path} entry {i}: conversion_factor must be positive and finite")
+    expected = required_scale_factor(source.get("unit"), target.get("unit"))
+    if expected is not None and not math.isclose(factor, expected, rel_tol=1e-12):
+        raise ValueError(
+            f"{path} entry {i}: conversion_factor {expected:g} is required for declared units"
+        )
     fields = {
         "target_code": target_code,
         "target_unit": str(target.get("unit", "")),

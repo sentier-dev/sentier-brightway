@@ -3,7 +3,7 @@ import warnings
 
 import pytest
 
-from sentier_brightway.bridge import load_bridge
+from sentier_brightway.bridge import BridgeEntry, load_bridge
 from sentier_brightway.build import (
     BuildResult,
     _node_type,
@@ -16,7 +16,7 @@ from sentier_brightway.constants import BIOSPHERE_DB, DEFAULT_SOURCE, inventory_
 from sentier_brightway.flows import load_bafu_flows, load_ef_flows
 from sentier_brightway.inventory import Inventory, load_inventory
 from sentier_brightway.methods import load_methods
-from tests.conftest import B3, E1, E2, E3, P1, P2
+from tests.conftest import B2, B3, B4, E1, E2, E3, P1, P2
 
 INVENTORY_DB = inventory_db(DEFAULT_SOURCE)
 RESIDUAL_DB = residual_db(DEFAULT_SOURCE)
@@ -41,10 +41,9 @@ def result(data_root) -> BuildResult:
 
 
 def test_nomenclature_default_relinks_b3_and_empties_residual(data_root):
-    with pytest.warns(UserWarning, match="1 EF flows are targeted with conflicting units"):
-        full = _build(data_root, include_nomenclature=True)
-    assert full.coverage.unit_conflicts == 1
-    assert full.biosphere[(BIOSPHERE_DB, E1)]["unit"] == "kilogram"  # first package wins
+    full = _build(data_root, include_nomenclature=True)
+    assert full.coverage.unit_conflicts == 0
+    assert full.biosphere[(BIOSPHERE_DB, E1)]["unit"] == "kilogram"
     assert full.residual == {}
     assert (BIOSPHERE_DB, E3) in full.biosphere
     assert full.biosphere[(BIOSPHERE_DB, E3)]["unit"] == "megajoule"
@@ -52,6 +51,27 @@ def test_nomenclature_default_relinks_b3_and_empties_residual(data_root):
     assert by_input[(BIOSPHERE_DB, E3)]["amount"] == 5.0
     assert (full.coverage.flows_mapped, full.coverage.flows_nomenclature) == (3, 1)
     assert full.coverage.residual_by_compartment == ()
+
+
+def test_target_unit_conflict_refuses_build_before_quantities_are_merged(data_root):
+    bridge = dict(load_bridge(data_root))
+    bridge[B4] = BridgeEntry(E1, "kBq")
+    with pytest.raises(ValueError, match="conflicting units.*explicit source conversion"):
+        build(
+            load_inventory(data_root),
+            load_ef_flows(data_root),
+            load_bafu_flows(data_root),
+            bridge,
+            load_methods(data_root),
+        )
+
+
+def test_declared_mapping_source_unit_must_match_the_exchange(data_root):
+    inv = load_inventory(data_root)
+    ex = inv.exchanges.copy()
+    ex.loc[ex["flow"] == B2, "unit"] = "kBq"
+    with pytest.raises(ValueError, match="exchange unit.*differs from bridge source unit"):
+        build_inventory(Inventory(inv.processes, ex), load_bridge(data_root))
 
 
 def test_biosphere_nodes_cover_vocab_cf_and_bridge_targets(result):

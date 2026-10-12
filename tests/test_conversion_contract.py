@@ -7,7 +7,8 @@ import pandas as pd
 import pytest
 
 from sentier_brightway import import_files
-from tests.conftest import B2, E2
+from sentier_brightway.constants import METHODS_FOLDER, REPO_METHODS
+from tests.conftest import B2, CLIMATE, E2
 
 
 @pytest.mark.parametrize(
@@ -70,3 +71,16 @@ def test_file_export_applies_conversion_once_to_amount_and_distribution(
         assert pd.isna(exported["negative"])
     biosphere = pd.read_parquet(out / "registry/biosphere.parquet")
     assert exported["unit"] == biosphere[biosphere["code"] == E2].iloc[0]["unit"]
+
+
+def test_explicit_zero_cf_survives_direct_mapping_export(data_root, tmp_path):
+    path = data_root / REPO_METHODS / "data" / METHODS_FOLDER / "characterization-factors.parquet"
+    frame = pd.read_parquet(path)
+    frame.loc[frame["method_id"] == CLIMATE, "factor_value"] = 0.0
+    frame.to_parquet(path, index=False)
+    out = tmp_path / "export"
+    import_files(out, data_root=data_root, include_nomenclature=False, datapackages=False)
+    factors = pd.read_parquet(out / "registry/characterization-factors.parquet")
+    climate = factors[factors["method_id"] == CLIMATE]
+    assert len(climate) == 1
+    assert climate.iloc[0]["factor"] == 0.0

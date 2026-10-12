@@ -37,3 +37,12 @@ def normalize_unit(unit: str | None) -> str:
     if not isinstance(unit, str):
         return ""
     return _UNITS.get(unit, unit)
+
+
+def required_scale_factor(source_unit: str | None, target_unit: str | None) -> float | None:
+    """Known magnitude changes; no density or chemical conversion is inferred."""
+    return {
+        ("Becquerel", "kilo Becquerel"): 0.001,
+        ("kilometer", "meter"): 1000.0,
+        ("kilowatt hour", "megajoule"): 3.6,
+    }.get((normalize_unit(source_unit), normalize_unit(target_unit)))

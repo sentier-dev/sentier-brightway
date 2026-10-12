@@ -167,6 +167,52 @@ def test_invalid_conversion_factor_is_refused(data_root, factor):
         load_bridge(data_root)
 
 
+@pytest.mark.parametrize("source_unit,target_unit", [("Bq", "kBq"), ("km", "m"), ("kWh", "MJ")])
+@pytest.mark.parametrize("factor", [None, 1.0, "missing"])
+def test_declared_magnitude_change_requires_its_multiplier(
+    data_root, source_unit, target_unit, factor
+):
+    entry = {
+        "source": {"code": "new", "unit": source_unit},
+        "target": {"code": "tgt", "unit": target_unit},
+    }
+    if factor != "missing":
+        entry["conversion_factor"] = factor
+    _add_package(data_root, "missing-scale.json", 2, [entry])
+    with pytest.raises(
+        ValueError, match="missing-scale.json entry 0.*required for declared units"
+    ):
+        load_bridge(data_root)
+
+
+def test_legacy_absent_source_declaration_stays_readable(data_root):
+    _add_package(
+        data_root,
+        "legacy.json",
+        2,
+        [{"source": {"code": "new"}, "target": {"code": "tgt", "unit": "kBq"}}],
+    )
+    assert load_bridge(data_root)["new"].conversion_factor == 1.0
+
+
+@pytest.mark.parametrize(
+    "source_unit,target_unit", [("kg", "kilogram"), ("Bq", "Becquerel"), ("kWh", "kilowatt hour")]
+)
+def test_declared_aliases_need_no_multiplier(data_root, source_unit, target_unit):
+    _add_package(
+        data_root,
+        "aliases.json",
+        2,
+        [
+            {
+                "source": {"code": "new", "unit": source_unit},
+                "target": {"code": "tgt", "unit": target_unit},
+            }
+        ],
+    )
+    assert load_bridge(data_root)["new"].conversion_factor == 1.0
+
+
 @pytest.mark.parametrize("factor", [True, False, 0, -1, float("nan"), float("inf")])
 def test_direct_bridge_entries_cannot_bypass_factor_validation(factor):
     with pytest.raises(ValueError, match="conversion_factor"):
@@ -188,6 +234,22 @@ def test_method_fallback_instructions_are_not_silently_ignored(data_root):
     )
     with pytest.raises(ValueError, match="fallbacks.json entry 0.*method-scoped"):
         load_bridge(data_root)
+
+
+def test_empty_fallback_list_keeps_direct_mapping_behavior(data_root):
+    _add_package(
+        data_root,
+        "direct-only.json",
+        2,
+        [
+            {
+                "source": {"code": "new", "unit": "kg"},
+                "target": {"code": "tgt", "unit": "kilogram"},
+                "characterization_factor_fallbacks": [],
+            }
+        ],
+    )
+    assert load_bridge(data_root)["new"].target_code == "tgt"
 
 
 def test_package_entry_missing_order_is_an_error(data_root):

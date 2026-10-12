@@ -34,7 +34,9 @@ def _write_metadata(data_root, packages: list[dict], schema_version: str | None 
 
 def test_replace_entries_are_keyed_by_source_code(data_root):
     bridge = load_bridge(data_root)
-    assert bridge[B1] == BridgeEntry(target_code=E1, target_unit="kilogram", conversion_factor=1.0)
+    assert bridge[B1] == BridgeEntry(
+        target_code=E1, target_unit="kilogram", conversion_factor=1.0, source_unit="kg"
+    )
     assert bridge[B2].conversion_factor == 0.001
     assert bridge[B2].target_code == E2
 
@@ -145,6 +147,47 @@ def test_null_conversion_factor_defaults_to_one(data_root):
         ],
     )
     assert load_bridge(data_root)["new"].conversion_factor == 1.0
+
+
+@pytest.mark.parametrize("factor", [True, False, 0, -1, float("nan"), float("inf"), "bad"])
+def test_invalid_conversion_factor_is_refused(data_root, factor):
+    _add_package(
+        data_root,
+        "invalid-factor.json",
+        2,
+        [
+            {
+                "source": {"code": "new", "unit": "Bq"},
+                "target": {"code": "tgt", "unit": "kBq"},
+                "conversion_factor": factor,
+            }
+        ],
+    )
+    with pytest.raises(ValueError, match="invalid-factor.json entry 0: conversion_factor"):
+        load_bridge(data_root)
+
+
+@pytest.mark.parametrize("factor", [True, False, 0, -1, float("nan"), float("inf")])
+def test_direct_bridge_entries_cannot_bypass_factor_validation(factor):
+    with pytest.raises(ValueError, match="conversion_factor"):
+        BridgeEntry("tgt", "kBq", factor)
+
+
+def test_method_fallback_instructions_are_not_silently_ignored(data_root):
+    _add_package(
+        data_root,
+        "fallbacks.json",
+        2,
+        [
+            {
+                "source": {"code": "new", "unit": "kg"},
+                "target": {"code": "tgt", "unit": "kilogram"},
+                "characterization_factor_fallbacks": [{"identifier": "fallback"}],
+            }
+        ],
+    )
+    with pytest.raises(ValueError, match="fallbacks.json entry 0.*method-scoped"):
+        load_bridge(data_root)
 
 
 def test_package_entry_missing_order_is_an_error(data_root):

@@ -9,8 +9,7 @@ from sentier_brightway import cli, coverage, import_bafu_files
 
 
 def test_coverage_api_needs_no_brightway(data_root):
-    with pytest.warns(UserWarning, match="conflicting units"):  # the fixture's B4 -> E1 entry
-        cov = coverage(data_root=data_root)
+    cov = coverage(data_root=data_root)
     assert (cov.flows_used, cov.flows_mapped, cov.flows_nomenclature) == (3, 3, 1)
     assert coverage(data_root=data_root, include_nomenclature=False).flows_mapped == 2
 
@@ -22,12 +21,17 @@ def test_cli_coverage_prints_report_and_citation(data_root, capsys):
     assert "2/3 bafu-2026 flows" in out and "BAFU:2026" in out
 
 
-def test_cli_coverage_reports_unit_conflicts_once(data_root, capsys, recwarn):
-    rc = cli.main(["coverage", "--data-root", str(data_root)])
-    out = capsys.readouterr().out
-    assert rc == 0
-    assert "1 EF flows targeted with conflicting units" in out
-    assert not [w for w in recwarn if "conflicting units" in str(w.message)]
+def test_cli_unit_conflict_refuses_file_export(data_root, tmp_path, capsys):
+    folder = data_root / "sentier-mappings/data/bafu-2026-v1__ef-3.1"
+    path = folder / "biosphere-4-nomenclature.json"
+    payload = json.loads(path.read_text())
+    payload["replace"][1]["target"]["unit"] = "kBq"
+    path.write_text(json.dumps(payload))
+    out = tmp_path / "out"
+    rc = cli.main(["files", "--data-root", str(data_root), "--out", str(out)])
+    assert rc == 2
+    assert "conflicting units" in capsys.readouterr().err
+    assert not out.exists()
 
 
 def test_cli_db_requires_project(data_root):

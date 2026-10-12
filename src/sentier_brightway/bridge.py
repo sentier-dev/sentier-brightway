@@ -8,6 +8,7 @@ normalisation) and names no new target to relink to, so it is ignored here.
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
@@ -28,6 +29,12 @@ class BridgeEntry:
     # captured for completeness; not used for linking in v0.1 because regionalized CFs
     # are skipped by the methods reader, so a located target is equivalent to the global one
     target_location: str | None = None
+    source_unit: str | None = None
+
+    def __post_init__(self) -> None:
+        factor = self.conversion_factor
+        if isinstance(factor, bool) or not math.isfinite(factor) or factor <= 0:
+            raise ValueError("conversion_factor must be positive and finite")
 
 
 def _load_json(path: Path) -> dict:
@@ -52,12 +59,26 @@ def _entry_fields(entry: dict, path: Path, i: int) -> tuple[str, dict]:
     target_code = target.get("code")
     if target_code is None:
         raise ValueError(f"{path} entry {i}: missing target.code")
+    if entry.get("characterization_factor_fallbacks"):
+        raise ValueError(
+            f"{path} entry {i}: characterization_factor_fallbacks require a method-scoped "
+            "consumer; this EF bridge cannot apply them"
+        )
     cf = entry.get("conversion_factor")
+    try:
+        factor = 1.0 if cf is None else float(cf)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"{path} entry {i}: conversion_factor must be positive and finite"
+        ) from exc
+    if isinstance(cf, bool) or not math.isfinite(factor) or factor <= 0:
+        raise ValueError(f"{path} entry {i}: conversion_factor must be positive and finite")
     fields = {
         "target_code": target_code,
         "target_unit": str(target.get("unit", "")),
-        "conversion_factor": 1.0 if cf is None else float(cf),
+        "conversion_factor": factor,
         "target_location": target.get("location"),
+        "source_unit": source.get("unit") or None,
     }
     return source_code, fields
 

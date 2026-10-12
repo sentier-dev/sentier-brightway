@@ -18,7 +18,7 @@ def test_require_columns_raises_naming_missing_columns():
 
 
 def test_data_root_error_names_expected_path_and_layout():
-    err = data_root_error("sector folders", Path("/tmp/x/sentier-inventory/data"))
+    err = data_root_error("source folders", Path("/tmp/x/sentier-inventory/data"))
     assert "/tmp/x/sentier-inventory/data" in str(err)
     assert "sentier-inventory" in str(err)
     assert "sentier-vocab" in str(err)
@@ -26,7 +26,7 @@ def test_data_root_error_names_expected_path_and_layout():
 
 
 def test_data_root_error_mentions_both_ways_to_set_the_root():
-    err = data_root_error("sector folders", Path("/tmp/x/sentier-inventory/data"))
+    err = data_root_error("source folders", Path("/tmp/x/sentier-inventory/data"))
     assert "--data-root" in str(err)
     assert "SENTIER_DATA_ROOT" in str(err)
 

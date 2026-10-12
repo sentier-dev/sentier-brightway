@@ -214,6 +214,14 @@ def test_process_without_comment_column_has_no_comment_key(data_root):
     assert "comment" in build_inventory(inv, {})[(INVENTORY_DB, P1)]
 
 
+def test_process_node_carries_its_sector_from_the_column(data_root):
+    inv = _inventory(data_root)
+    nodes = build_inventory(inv, {})
+    assert nodes[(INVENTORY_DB, P1)]["sector"] == "electricity"
+    without = build_inventory(Inventory(inv.processes.drop(columns=["sector"]), inv.exchanges), {})
+    assert "sector" not in without[(INVENTORY_DB, P1)]
+
+
 def test_orphan_exchange_row_is_an_error(data_root):
     inv = _inventory(data_root)
     ex = inv.exchanges.copy()

@@ -302,7 +302,7 @@ def build_inventory(
     inventory: Inventory, bridge: Mapping[str, BridgeEntry], dbs: Databases | None = None
 ) -> dict[Key, dict]:
     """Process nodes keyed into ``dbs.inventory`` (defaults to the names for
-    ``inventory.source``), each carrying its ``source`` / ``source_version`` tag."""
+    ``inventory.source``), each carrying its ``source`` / ``source_version`` / ``sector`` tag."""
     dbs = dbs or Databases.for_source(inventory.source)
     _check_links(inventory.processes, inventory.exchanges)
     grouped = _exchanges_by_process(inventory.exchanges, bridge, dbs)
@@ -321,6 +321,9 @@ def build_inventory(
         version = getattr(p, "source_version", None)
         if not _is_null(version):
             node["source_version"] = str(version)
+        sector = getattr(p, "sector", None)
+        if not _is_null(sector):
+            node["sector"] = str(sector)
         comment = getattr(p, "comment", None)
         if not _is_null(comment):
             node["comment"] = str(comment)

@@ -13,7 +13,7 @@ name = "sentier-inventory"
 repo = "sentier-dev/sentier-inventory"
 ref = "0123456789abcdef0123456789abcdef01234567"
 [source.files]
-"data/02-electricity/processes.parquet" = "{sha}"
+"data/bafu-2026-v1/processes.parquet" = "{sha}"
 """
 
 
@@ -71,11 +71,11 @@ def test_manifest_download_verifies_sha_and_caches(tmp_path, monkeypatch):
     monkeypatch.setattr(fetch, "_download", fake_download)
     manifest = fetch.parse_manifest(_toml(sha))
     root = fetch.materialize(manifest, cache_dir=tmp_path / "cache")
-    target = root / "sentier-inventory" / "data/02-electricity/processes.parquet"
+    target = root / "sentier-inventory" / "data/bafu-2026-v1/processes.parquet"
     assert target.read_bytes() == payload
     assert calls == [
         "https://raw.githubusercontent.com/sentier-dev/sentier-inventory/"
-        "0123456789abcdef0123456789abcdef01234567/data/02-electricity/processes.parquet"
+        "0123456789abcdef0123456789abcdef01234567/data/bafu-2026-v1/processes.parquet"
     ]
     fetch.materialize(manifest, cache_dir=tmp_path / "cache")
     assert len(calls) == 1  # second call served from cache
@@ -113,7 +113,7 @@ def test_download_failure_is_a_fetch_error_naming_the_url(tmp_path, monkeypatch)
     message = str(exc_info.value)
     assert (
         "https://raw.githubusercontent.com/sentier-dev/sentier-inventory/"
-        "0123456789abcdef0123456789abcdef01234567/data/02-electricity/processes.parquet"
+        "0123456789abcdef0123456789abcdef01234567/data/bafu-2026-v1/processes.parquet"
     ) in message
 
 

@@ -36,11 +36,14 @@ CLIMATE = "ef-3.1:climate-change"
 IONISING = "ef-3.1:ionising-radiation"
 P1_CLIMATE_SCORE = 2.0  # 1.0 own CO2 + 2 kWh x 0.5 kg
 P1_IONISING_SCORE = 6.0  # 2 kWh x 1000 Bq x 0.001 x 3.0
+SOURCE = "bafu-2026"
+SOURCE_VERSION = "v1"
+INVENTORY_FOLDER = f"sentier-inventory/data/{SOURCE}-{SOURCE_VERSION}"
 
 
 def _write_inventory(root: Path) -> None:
-    sector = root / "sentier-inventory" / "data" / "02-electricity"
-    sector.mkdir(parents=True)
+    folder = root / "sentier-inventory" / "data" / f"{SOURCE}-{SOURCE_VERSION}"
+    folder.mkdir(parents=True)
     processes = pd.DataFrame(
         {
             "process_id": [P1, P2],
@@ -50,8 +53,9 @@ def _write_inventory(root: Path) -> None:
             "reference_amount": [1.0, 1.0],
             "location": ["CH", "CH"],
             "process_type": ["unit", "unit"],
-            "source": ["bafu-2026", "bafu-2026"],
-            "source_version": ["v1", "v1"],
+            "sector": ["electricity", "electricity"],
+            "source": [SOURCE, SOURCE],
+            "source_version": [SOURCE_VERSION, SOURCE_VERSION],
             "technology": ["grid", "grid"],
             "comment": ["BAFU category: electricity", "BAFU category: electricity"],
         }
@@ -150,18 +154,29 @@ def _write_inventory(root: Path) -> None:
     # so pd.NA, not float NaN, is what readers and builders actually see.
     exchanges["minimum"] = exchanges["minimum"].astype("string")
     exchanges["maximum"] = exchanges["maximum"].astype("string")
-    processes.to_parquet(sector / "processes.parquet", index=False)
-    exchanges.to_parquet(sector / "exchanges.parquet", index=False)
-    (sector / "metadata.json").write_text(
-        json.dumps(
-            {
-                "sector": "electricity",
-                "rank": 2,
-                "schema_version": "0.2.0",
-                "sources": ["bafu-2026"],
-            }
-        )
-    )
+    processes.to_parquet(folder / "processes.parquet", index=False)
+    exchanges.to_parquet(folder / "exchanges.parquet", index=False)
+    (folder / "metadata.json").write_text(json.dumps(inventory_metadata(SOURCE, SOURCE_VERSION)))
+
+
+def inventory_metadata(
+    source: str, source_version: str, sectors: tuple[str, ...] = ("electricity",)
+) -> dict:
+    """A ``metadata.json`` body in the sentier-inventory 0.3.0 shape (one source per folder)."""
+    return {
+        "source": source,
+        "source_version": source_version,
+        "title": f"{source} {source_version} test inventory",
+        "publisher": "test publisher",
+        "license": "test licence",
+        "citation": f"Source: {source}.",
+        "source_url": None,
+        "provenance": f"https://vocab.sentier.dev/sources/{source}",
+        "retrieved": None,
+        "schema_version": "0.3.0",
+        "sectors": sorted(sectors),
+        "row_counts": {"processes.parquet": 2, "exchanges.parquet": 8},
+    }
 
 
 def _vocab_frame(rows: list[dict]) -> pd.DataFrame:

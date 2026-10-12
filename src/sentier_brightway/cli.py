@@ -20,8 +20,14 @@ def _add_source(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--source",
         default=DEFAULT_SOURCE,
-        help="inventory source id to install (processes.source in sentier-inventory); "
+        help="inventory source id to install (data/<source>-<version>/ in sentier-inventory); "
         f"names the inventory database (default: {DEFAULT_SOURCE})",
+    )
+    parser.add_argument(
+        "--source-version",
+        default=None,
+        help="release of --source to read when the data root serves several (default: the "
+        "only one present)",
     )
 
 
@@ -103,6 +109,7 @@ def _run_backtest(args: argparse.Namespace, include: bool) -> str:
             include_nomenclature=include,
             overwrite=True,
             source=args.source,
+            source_version=args.source_version,
         )
     cats = bt.FIXTURE_CATEGORIES if args.fixture_categories else bt.CATEGORIES
     xlsx = Path(args.xlsx) if args.xlsx else bt.DEFAULT_XLSX.expanduser()
@@ -116,7 +123,12 @@ def _run(args: argparse.Namespace) -> str:
     if args.command == "backtest":
         return _run_backtest(args, include)
     if args.command == "coverage":
-        cov = coverage(data_root=args.data_root, include_nomenclature=include, source=args.source)
+        cov = coverage(
+            data_root=args.data_root,
+            include_nomenclature=include,
+            source=args.source,
+            source_version=args.source_version,
+        )
     elif args.command == "files":
         cov = import_files(
             args.out,
@@ -125,6 +137,7 @@ def _run(args: argparse.Namespace) -> str:
             datapackages=not args.no_datapackages,
             overwrite=args.overwrite,
             source=args.source,
+            source_version=args.source_version,
         )
     else:
         cov = import_db(
@@ -133,6 +146,7 @@ def _run(args: argparse.Namespace) -> str:
             data_root=args.data_root,
             include_nomenclature=include,
             source=args.source,
+            source_version=args.source_version,
         )
     text = render(cov)
     if args.command == "files":

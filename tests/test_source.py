@@ -9,24 +9,24 @@ from sentier_brightway import assemble, cli, coverage, import_files
 from sentier_brightway.constants import DEFAULT_SOURCE, SOURCE_IRI_PREFIX, citation
 from sentier_brightway.datapackage import inventory_folder, load_inventory_datapackage
 from sentier_brightway.report import render
-from tests.conftest import B3, P1, P2
+from tests.conftest import B3, INVENTORY_FOLDER, P1, P2, inventory_metadata
 
 OTHER = "other-1"
-SECTOR = "sentier-inventory/data/02-electricity"
+OTHER_VERSION = "2025"
 
 
 @pytest.fixture
 def other_root(data_root):
-    """The fixture inventory relabelled as source ``other-1`` (rows, metadata, vocab IRI)."""
-    path = data_root / SECTOR / "processes.parquet"
+    """The fixture inventory relabelled as ``other-1``: folder, rows, metadata and vocab IRI."""
+    old = data_root / INVENTORY_FOLDER
+    folder = old.with_name(f"{OTHER}-{OTHER_VERSION}")
+    old.rename(folder)
+    path = folder / "processes.parquet"
     proc = pd.read_parquet(path)
     proc["source"] = OTHER
-    proc["source_version"] = "2025"
+    proc["source_version"] = OTHER_VERSION
     proc.to_parquet(path, index=False)
-    meta_path = data_root / SECTOR / "metadata.json"
-    meta = json.loads(meta_path.read_text())
-    meta["sources"] = [OTHER]
-    meta_path.write_text(json.dumps(meta))
+    (folder / "metadata.json").write_text(json.dumps(inventory_metadata(OTHER, OTHER_VERSION)))
     folder = data_root / "sentier-vocab" / "data" / "elementary-flows"
     for shard in folder.glob("*.parquet"):
         df = pd.read_parquet(shard)
@@ -106,7 +106,27 @@ def test_cli_default_source_errors_on_relabelled_root(other_root, capsys):
     rc = cli.main(["coverage", "--data-root", str(other_root)])
     err = capsys.readouterr().err
     assert rc == 2
-    assert "source='bafu-2026'" in err and OTHER in err
+    assert "source='bafu-2026'" in err and f"{OTHER}/{OTHER_VERSION}" in err
+
+
+def test_cli_source_version_flag_selects_the_release(other_root, capsys):
+    args = ["coverage", "--data-root", str(other_root), "--source", OTHER, "--skip-nomenclature"]
+    assert cli.main(args + ["--source-version", OTHER_VERSION]) == 0
+    assert f"Installed {OTHER}: 2 processes" in capsys.readouterr().out
+    assert cli.main(args + ["--source-version", "v9"]) == 2
+    err = capsys.readouterr().err
+    assert "source_version='v9'" in err and f"{OTHER}/{OTHER_VERSION}" in err
+
+
+def test_api_source_version_passthrough(other_root, tmp_path):
+    cov = coverage(
+        other_root, include_nomenclature=False, source=OTHER, source_version=OTHER_VERSION
+    )
+    assert cov.processes == 2
+    with pytest.raises(ValueError, match="source_version='v9'"):
+        assemble(other_root, source=OTHER, source_version="v9")
+    with pytest.raises(ValueError, match="source_version='v9'"):
+        import_files(tmp_path / "out", data_root=other_root, source=OTHER, source_version="v9")
 
 
 @pytest.mark.bw

@@ -36,13 +36,13 @@ uv pip install git+https://github.com/sentier-dev/sentier-brightway
 | `uv run sentier-brightway backtest --out DIR` | Scores every process, compares with BAFU's own openLCA results, writes a dashboard. |
 | Python API | `import_db(project)`, `import_files(out_dir)` and `backtest.run_backtest(files_dir, xlsx, out_dir)` in `sentier_brightway`; `import_bafu_db` / `import_bafu_files` are the same functions under their original names. |
 
-Every command installs one inventory **source**: the `source` tag that sentier-inventory puts on each process row (`bafu-2026` by default, `--source` to choose another). The inventory and residual databases are named after it, so a second source installs next to BAFU instead of over it.
+Every command installs one inventory **source**: sentier-inventory keeps one folder per published release, `data/<source>-<source_version>/` (`bafu-2026-v1/` today), and tags each process row with `source`, `source_version` and `sector`. `--source` picks the folder (`bafu-2026` by default), `--source-version` only matters when the data root serves two releases of the same source. The inventory and residual databases are named after the source, never the version, so a second source installs next to BAFU instead of over it, and a re-release replaces it in place. Process nodes carry the three tags; `sector` is a column, not a folder, so filter on it.
 
 ### Brightway project
 
 | Object | Content |
 |---|---|
-| database `<source>` (`bafu-2026`) | the source's processes: 11,947 BAFU-2026 v1 processes, each carrying `source` and `source_version` |
+| database `<source>` (`bafu-2026`) | the source's processes: 11,947 BAFU-2026 v1 processes, each carrying `source`, `source_version` and `sector` |
 | database `ef-3.1-biosphere` | EF 3.1 elementary flows, with the source's emissions relinked onto them |
 | database `<source>-residual` (`bafu-2026-residual`) | source flows with no EF 3.1 counterpart (kept, no factor) |
 | methods `("sentier", "EF v3.1", <category>)` | 25 EF 3.1 impact categories |
@@ -81,7 +81,8 @@ Click a box (or its label) for the worst-200 list of that category, sortable and
 
 | Flag | Commands | Effect |
 |---|---|---|
-| `--source ID` | all | Inventory source to install (`processes.source` in sentier-inventory); names the databases. Default `bafu-2026`. |
+| `--source ID` | all | Inventory source to install (`data/<source>-<version>/` in sentier-inventory); names the databases. Default `bafu-2026`. |
+| `--source-version V` | all | Release of the source to read when the data root holds several (`v1`); the only release present otherwise. |
 | `--overwrite` | db, files | Replace a previous install or export. |
 | `--data-root DIR` | all | Read the Sentier data repos from local clones under `DIR` instead of downloading (`$SENTIER_DATA_ROOT` works too). |
 | `--skip-nomenclature` | all | Leave BAFU flows whose EF counterpart carries no factor in the residual database. |

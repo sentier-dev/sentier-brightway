@@ -1,4 +1,4 @@
-"""Read the sector folders of sentier-inventory for one ``source`` into two flat frames."""
+"""Read one source folder of sentier-inventory (``data/<source>-<version>/``) into two frames."""
 
 from __future__ import annotations
 
@@ -21,22 +21,39 @@ PROCESS_COLUMNS = frozenset(
         "reference_amount",
         "location",
         "process_type",
+        "sector",
         "source",
+        "source_version",
     }
 )
 EXCHANGE_COLUMNS = frozenset(
     {"process_id", "flow", "flow_name", "flow_type", "direction", "amount", "unit"}
 )
 UNCERTAINTY_COLUMNS = ("uncertainty_type", "loc", "scale", "minimum", "maximum")
+METADATA_SCHEMA = "0.3.0"  # first sentier-inventory schema with one source per folder
 
 
 @dataclass(frozen=True)
 class Inventory:
-    processes: pd.DataFrame
+    processes: pd.DataFrame  # keeps the ``sector`` column so callers can filter on it
     exchanges: pd.DataFrame
     source: str = DEFAULT_SOURCE
-    source_version: str | None = None
-    sectors: tuple[str, ...] = ()  # folders actually read, in rank order
+    source_version: str | None = None  # ``metadata.source_version`` of the folder read
+    sectors: tuple[str, ...] = ()  # ``metadata.sectors`` of the folder read, sorted
+
+
+@dataclass(frozen=True)
+class SourceFolder:
+    """One ``data/<source>-<source_version>/`` folder as its ``metadata.json`` describes it."""
+
+    path: Path
+    source: str
+    source_version: str
+    sectors: tuple[str, ...]
+
+    @property
+    def label(self) -> str:
+        return f"{self.source}/{self.source_version} ({self.path.name})"
 
 
 def _with_uncertainty_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -48,91 +65,97 @@ def _with_uncertainty_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df.assign(**extra)
 
 
-def _declared_sources(sector: Path) -> list[str]:
-    """The ``sources`` list of a sector's ``metadata.json``; 0.1.0 metadata is an error."""
-    meta_path = sector / "metadata.json"
+def _read_metadata(folder: Path) -> SourceFolder:
+    """The folder's ``metadata.json`` as a ``SourceFolder``; pre-0.3.0 metadata is an error."""
+    meta_path = folder / "metadata.json"
     if not meta_path.is_file():
         raise FileNotFoundError(
-            f"{sector} has no metadata.json; cannot tell which sources it holds"
+            f"{folder} has no metadata.json; cannot tell which source it holds"
         )
     meta = json.loads(meta_path.read_text())
-    sources = meta.get("sources")
-    if not isinstance(sources, list):
+    source, version, sectors = meta.get("source"), meta.get("source_version"), meta.get("sectors")
+    if not isinstance(source, str) or not isinstance(version, str):
         raise ValueError(
-            f"{meta_path} has no 'sources' list (sentier-inventory schema < 0.2.0); "
-            "refusing to read the folder blind"
+            f"{meta_path} has no 'source' / 'source_version' keys (sentier-inventory schema "
+            f"< {METADATA_SCHEMA}, one folder per source); refusing to read the folder blind"
         )
-    return sources
+    if not isinstance(sectors, list) or not all(isinstance(s, str) for s in sectors):
+        raise ValueError(f"{meta_path} has no 'sectors' list (sentier-inventory schema >= 0.3.0)")
+    return SourceFolder(folder, source, version, tuple(sorted(sectors)))
 
 
-def _select_sectors(base: Path, source: str) -> list[Path]:
-    """Pass one: folders whose metadata lists ``source``; their parquet is not opened."""
-    sectors = sorted(p for p in base.glob("*-*") if (p / "processes.parquet").is_file())
-    if not sectors:
-        raise data_root_error("sector folders with processes.parquet", base)
-    available: set[str] = set()
-    selected = []
-    for sector in sectors:
-        declared = _declared_sources(sector)
-        available.update(declared)
-        if source in declared:
-            selected.append(sector)
-    if not selected:
+def scan_source_folders(base: Path) -> list[SourceFolder]:
+    """Every ``data/*/`` folder with a ``processes.parquet``, described by its metadata only."""
+    folders = sorted(p.parent for p in base.glob("*/processes.parquet"))
+    if not folders:
+        raise data_root_error("source folders with processes.parquet", base)
+    return [_read_metadata(folder) for folder in folders]
+
+
+def _select_folder(base: Path, source: str, source_version: str | None) -> SourceFolder:
+    """Pass one: the folder whose metadata declares ``source`` (and the version when given)."""
+    folders = scan_source_folders(base)
+    matches = [
+        f
+        for f in folders
+        if f.source == source and (source_version is None or f.source_version == source_version)
+    ]
+    if not matches:
+        wanted = f"source={source!r}"
+        if source_version is not None:
+            wanted += f", source_version={source_version!r}"
         raise ValueError(
-            f"no sector folder lists source={source!r} under {base}; "
-            f"available: {sorted(available)}"
+            f"no source folder with {wanted} under {base}; available: "
+            + ", ".join(f.label for f in folders)
         )
-    return selected
+    if len(matches) > 1:
+        raise ValueError(
+            f"several folders hold source={source!r} under {base}: "
+            + ", ".join(f.label for f in matches)
+            + "; pass source_version to pick one"
+        )
+    return matches[0]
 
 
-def _read_sector(sector: Path, source: str) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Pass two: the rows of ``source`` in one folder (predicate pushdown on ``source``)."""
-    processes_path = sector / "processes.parquet"
+def _read_folder(folder: SourceFolder) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Pass two: the folder's rows; the ``source`` predicate pushdown is a consistency guard.
+
+    The folder holds exactly one source by contract (CI-checked in sentier-inventory), so the
+    filter changes nothing on valid data and drops rows that contradict the metadata."""
+    processes_path = folder.path / "processes.parquet"
     # check the contract on the file schema before filtering: a missing ``source`` column
     # must surface as our column error, not as a pyarrow filter failure
     require_columns(
         pq.read_schema(processes_path).empty_table().to_pandas(), PROCESS_COLUMNS, processes_path
     )
-    p = pd.read_parquet(processes_path, filters=[("source", "==", source)])
-    exchanges_path = sector / "exchanges.parquet"
+    p = pd.read_parquet(processes_path, filters=[("source", "==", folder.source)])
+    exchanges_path = folder.path / "exchanges.parquet"
     if not exchanges_path.is_file():
-        raise FileNotFoundError(f"{sector} has processes.parquet but no exchanges.parquet")
+        raise FileNotFoundError(f"{folder.path} has processes.parquet but no exchanges.parquet")
     e = pd.read_parquet(exchanges_path)
     require_columns(e, EXCHANGE_COLUMNS, exchanges_path)
     e = e[e["process_id"].isin(p["process_id"])]
     return p, _with_uncertainty_columns(e)
 
 
-def _version(processes: pd.DataFrame) -> str | None:
-    """Distinct ``source_version`` values, comma-joined; None when the column is absent/null."""
-    if "source_version" not in processes.columns:
-        return None
-    values = sorted(set(processes["source_version"].dropna().astype(str)))
-    return ",".join(values) if values else None
+def load_inventory(
+    data_root: Path, source: str = DEFAULT_SOURCE, source_version: str | None = None
+) -> Inventory:
+    """The processes and exchanges of one inventory ``source`` release.
 
-
-def load_inventory(data_root: Path, source: str = DEFAULT_SOURCE) -> Inventory:
-    """Rows of one inventory ``source`` across every sector folder that holds it.
-
-    Folder selection reads only ``metadata.json`` (its ``sources`` list is CI-checked
-    against the parquet in sentier-inventory), so folders delivered by other sources are
-    never opened. Inside a selected folder only the rows with ``processes.source ==
-    source`` are materialised, and exchanges follow their process. ``99-obsolete`` is
-    read like any other folder whenever it lists the source: its processes are link
-    targets for exchanges recorded in other sectors.
+    sentier-inventory keeps one folder per published release, ``data/<source>-<version>/``,
+    with ``sector`` as a column on the processes. Folder selection reads only each folder's
+    ``metadata.json`` (``source``, ``source_version``, ``sectors``), so other sources' parquet
+    is never opened. Without ``source_version`` the source must be present exactly once; with
+    it, that release is read. The ``sector`` column stays on the returned frame.
     """
     base = Path(data_root) / REPO_INVENTORY / "data"
-    selected = _select_sectors(base, source)
-    processes, exchanges = [], []
-    for sector in selected:
-        p, e = _read_sector(sector, source)
-        processes.append(p)
-        exchanges.append(e)
-    all_processes = pd.concat(processes, ignore_index=True)
+    folder = _select_folder(base, source, source_version)
+    processes, exchanges = _read_folder(folder)
     return Inventory(
-        processes=all_processes,
-        exchanges=pd.concat(exchanges, ignore_index=True),
-        source=source,
-        source_version=_version(all_processes),
-        sectors=tuple(s.name for s in selected),
+        processes=processes,
+        exchanges=exchanges,
+        source=folder.source,
+        source_version=folder.source_version,
+        sectors=folder.sectors,
     )

@@ -2,6 +2,14 @@
 
 ## 0.1.0 (unreleased)
 
+- sentier-inventory layout 0.3.0: one folder per source release (`data/<source>-<version>/`)
+  with `sector` as a process column. `load_inventory(root, source, source_version=None)` picks
+  the folder from its `metadata.json` (errors list the source/version pairs present; two
+  releases of one source need `source_version`); `Inventory.sectors` and `source_version` come
+  from the metadata, the `sector` column stays on the frame and on every process node.
+  `source_version=` on `assemble` / `coverage` / `import_db` / `import_files` and their
+  `import_bafu_*` wrappers, `--source-version` on every CLI command. `sources.toml` pins the
+  three files of `data/bafu-2026-v1/` instead of thirty-three sector files.
 - README opens with an architecture schema (Mermaid): Activity Browser, the two importers, the
   three Sentier data repositories they pull from, and the backtest against BAFU's openLCA results.
 - Backtest module (`sentier_brightway.backtest`) and `sentier-brightway backtest` CLI: all

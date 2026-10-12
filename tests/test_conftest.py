@@ -3,22 +3,40 @@ import math
 
 import pandas as pd
 
-from tests.conftest import B1, B2, E1, E2, P1, P1_CLIMATE_SCORE, P1_IONISING_SCORE, P2
+from tests.conftest import (
+    B1,
+    B2,
+    E1,
+    E2,
+    INVENTORY_FOLDER,
+    P1,
+    P1_CLIMATE_SCORE,
+    P1_IONISING_SCORE,
+    P2,
+)
 
 
 def test_fixture_layout(data_root):
-    assert (data_root / "sentier-inventory/data/02-electricity/exchanges.parquet").is_file()
+    assert (data_root / INVENTORY_FOLDER / "exchanges.parquet").is_file()
+    assert (data_root / INVENTORY_FOLDER / "metadata.json").is_file()
     assert (data_root / "sentier-vocab/data/elementary-flows/air-01.parquet").is_file()
     assert (data_root / "sentier-methods/data/01-ef-3.1/methods.parquet").is_file()
     assert (
         data_root / "sentier-mappings/data/bafu-2026-v1__ef-3.1/biosphere-1-curated.json"
     ).is_file()
-    ex = pd.read_parquet(data_root / "sentier-inventory/data/02-electricity/exchanges.parquet")
+    ex = pd.read_parquet(data_root / INVENTORY_FOLDER / "exchanges.parquet")
     assert len(ex) == 8
+    proc = pd.read_parquet(data_root / INVENTORY_FOLDER / "processes.parquet")
+    assert list(proc["sector"]) == ["electricity", "electricity"]
+    meta = json.loads((data_root / INVENTORY_FOLDER / "metadata.json").read_text())
+    assert meta["schema_version"] == "0.3.0"
+    assert (meta["source"], meta["source_version"]) == ("bafu-2026", "v1")
+    assert meta["sectors"] == sorted(set(proc["sector"]))
+    assert meta["row_counts"] == {"processes.parquet": len(proc), "exchanges.parquet": len(ex)}
 
 
 def test_fixture_invariants(data_root):
-    inventory = data_root / "sentier-inventory" / "data" / "02-electricity"
+    inventory = data_root / INVENTORY_FOLDER
     methods = data_root / "sentier-methods" / "data" / "01-ef-3.1"
     bridge_folder = data_root / "sentier-mappings" / "data" / "bafu-2026-v1__ef-3.1"
 

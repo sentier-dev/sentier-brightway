@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-import warnings
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from typing import Mapping
@@ -76,13 +75,12 @@ def _bridge_units(bridge: Mapping[str, BridgeEntry]) -> tuple[dict[str, str], tu
     return units, conflicts
 
 
-def _warn_unit_conflicts(conflicts: tuple[str, ...]) -> None:
+def _check_unit_conflicts(conflicts: tuple[str, ...]) -> None:
     if conflicts:
         examples = ", ".join(conflicts[:3])
-        warnings.warn(
+        raise ValueError(
             f"{len(conflicts)} EF flows are targeted with conflicting units in the bridge "
-            f"(e.g. {examples}); the first package's unit is kept",
-            stacklevel=2,
+            f"(e.g. {examples}); use one target unit and explicit source conversion factors"
         )
 
 
@@ -92,7 +90,7 @@ def build_biosphere(
     """One node per EF flow known to vocab, to any CF table, or to any bridge target.
 
     ``units`` is the first normalised target unit per EF code, as computed once by
-    ``_bridge_units`` in ``build()`` (conflict warnings are also ``build()``'s job)."""
+    ``_bridge_units`` in ``build()`` (conflict refusal is also ``build()``'s job)."""
     names: dict[str, str] = dict(zip(ef_flows["code"], ef_flows["name"]))
     cas: dict[str, str | None] = dict(zip(ef_flows["code"], ef_flows["cas_number"]))
     # CF context is more specific than the vocab compartment, so it takes priority; among
@@ -283,6 +281,13 @@ def _exchanges_by_process(
     grouped: dict[str, list[dict]] = defaultdict(list)
     columns = [_column(exchanges, name) for name in EXCHANGE_FIELDS]
     for pid, flow, name, ftype, amount, unit, utype, loc, scale, mn, mx in zip(*columns):
+        entry = bridge.get(flow) if ftype == "biosphere" else None
+        if entry is not None and entry.source_unit is not None:
+            if normalize_unit(unit) != normalize_unit(entry.source_unit):
+                raise ValueError(
+                    f"Process {pid}, flow {flow}: exchange unit {unit!r} differs from "
+                    f"bridge source unit {entry.source_unit!r}"
+                )
         key, etype, target_unit, factor = _link(pid, flow, ftype, bridge, dbs)
         scaled = float(amount) * factor
         grouped[pid].append(
@@ -390,7 +395,7 @@ def build(
     bio = inventory.exchanges[inventory.exchanges["flow_type"] == "biosphere"]
     unmapped = set(bio["flow"]) - set(bridge.keys())
     units, conflicts = _bridge_units(bridge)
-    _warn_unit_conflicts(conflicts)
+    _check_unit_conflicts(conflicts)
     dbs = Databases.for_source(inventory.source)
     return BuildResult(
         biosphere=build_biosphere(ef_flows, units, methods),

@@ -38,8 +38,7 @@ def other_root(data_root):
 
 
 def test_default_build_is_named_after_bafu(data_root):
-    with pytest.warns(UserWarning, match="conflicting units"):
-        result = assemble(data_root)
+    result = assemble(data_root)
     assert (result.source, result.source_version) == (DEFAULT_SOURCE, "v1")
     assert (result.inventory_db, result.residual_db) == ("bafu-2026", "bafu-2026-residual")
     assert result.coverage.inventory_db == "bafu-2026"

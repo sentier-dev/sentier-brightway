@@ -391,11 +391,15 @@ def build(
     bafu_flows: pd.DataFrame,
     bridge: Mapping[str, BridgeEntry],
     methods: tuple[MethodSpec, ...],
+    refuse_unit_conflicts: bool = True,
 ) -> BuildResult:
+    """``refuse_unit_conflicts=False`` only counts conflicts, for a coverage report that
+    writes nothing."""
     bio = inventory.exchanges[inventory.exchanges["flow_type"] == "biosphere"]
     unmapped = set(bio["flow"]) - set(bridge.keys())
     units, conflicts = _bridge_units(bridge)
-    _check_unit_conflicts(conflicts)
+    if refuse_unit_conflicts:
+        _check_unit_conflicts(conflicts)
     dbs = Databases.for_source(inventory.source)
     return BuildResult(
         biosphere=build_biosphere(ef_flows, units, methods),

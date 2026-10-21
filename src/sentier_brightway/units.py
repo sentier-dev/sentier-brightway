@@ -39,10 +39,26 @@ def normalize_unit(unit: str | None) -> str:
     return _UNITS.get(unit, unit)
 
 
+# Each unit's size in a common base unit of its dimension. Pairs within one dimension get
+# their factor in both directions; no density or chemical conversion is inferred.
+_SCALES = MappingProxyType(
+    {
+        "Becquerel": ("activity", 1.0),
+        "kilo Becquerel": ("activity", 1000.0),
+        "meter": ("length", 1.0),
+        "kilometer": ("length", 1000.0),
+        "megajoule": ("energy", 1.0),
+        "kilowatt hour": ("energy", 3.6),
+        "square meter": ("area", 1.0),
+        "hectare": ("area", 10000.0),
+    }
+)
+
+
 def required_scale_factor(source_unit: str | None, target_unit: str | None) -> float | None:
     """Known magnitude changes; no density or chemical conversion is inferred."""
-    return {
-        ("Becquerel", "kilo Becquerel"): 0.001,
-        ("kilometer", "meter"): 1000.0,
-        ("kilowatt hour", "megajoule"): 3.6,
-    }.get((normalize_unit(source_unit), normalize_unit(target_unit)))
+    source = _SCALES.get(normalize_unit(source_unit))
+    target = _SCALES.get(normalize_unit(target_unit))
+    if source is None or target is None or source[0] != target[0] or source == target:
+        return None
+    return source[1] / target[1]

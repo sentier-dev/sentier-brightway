@@ -2,6 +2,12 @@
 
 ## 0.1.0 (unreleased)
 
+- Mapping contract: a target unit claimed with two different units is now an error in
+  `import_db` / `import_files` (it was a warning); `coverage` still reports the count without
+  refusing. Conversion factors must be positive and finite, and a declared magnitude change
+  (Bq/kBq, m/km, kWh/MJ, m2/ha, in either direction) needs its exact factor. Nonempty
+  characterisation-factor fallback instructions are refused, because the EF bridge cannot apply
+  them yet.
 - sentier-inventory layout 0.3.0: one folder per source release (`data/<source>-<version>/`)
   with `sector` as a process column. `load_inventory(root, source, source_version=None)` picks
   the folder from its `metadata.json` (errors list the source/version pairs present; two

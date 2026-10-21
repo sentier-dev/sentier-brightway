@@ -8,7 +8,7 @@ import pytest
 
 from sentier_brightway import import_files
 from sentier_brightway.constants import METHODS_FOLDER, REPO_METHODS
-from tests.conftest import B2, CLIMATE, E2
+from tests.conftest import B2, CLIMATE, E2, INVENTORY_FOLDER
 
 
 @pytest.mark.parametrize(
@@ -32,7 +32,7 @@ def test_file_export_applies_conversion_once_to_amount_and_distribution(
     row["conversion_factor"] = factor
     path.write_text(json.dumps(package))
 
-    path = data_root / "sentier-inventory/data/02-electricity/exchanges.parquet"
+    path = data_root / INVENTORY_FOLDER / "exchanges.parquet"
     frame = pd.read_parquet(path)
     selected = frame["flow"] == B2
     loc = math.log(1000) if uncertainty_type == 2 else sign * 1000

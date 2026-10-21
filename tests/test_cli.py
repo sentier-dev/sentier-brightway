@@ -207,3 +207,14 @@ def test_version_module_is_the_single_source():
 
     assert sentier_brightway.__version__ == __version__
     assert __version__ == importlib.metadata.version("sentier-brightway")
+
+
+def test_cli_coverage_reports_unit_conflicts_without_refusing(data_root, capsys):
+    folder = data_root / "sentier-mappings/data/bafu-2026-v1__ef-3.1"
+    path = folder / "biosphere-4-nomenclature.json"
+    payload = json.loads(path.read_text())
+    payload["replace"][1]["target"]["unit"] = "kBq"
+    path.write_text(json.dumps(payload))
+    rc = cli.main(["coverage", "--data-root", str(data_root)])
+    assert rc == 0
+    assert "EF flows targeted with conflicting units" in capsys.readouterr().out

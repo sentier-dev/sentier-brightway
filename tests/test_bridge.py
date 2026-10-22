@@ -185,6 +185,37 @@ def test_declared_magnitude_change_requires_its_multiplier(
         load_bridge(data_root)
 
 
+@pytest.mark.parametrize("source_unit,target_unit", [("kg", "m3"), ("kg", "MJ"), ("m3", "Nm3")])
+@pytest.mark.parametrize("factor", [None, "missing"])
+def test_null_factor_with_changed_unit_is_refused(data_root, source_unit, target_unit, factor):
+    entry = {
+        "source": {"code": "new", "unit": source_unit},
+        "target": {"code": "tgt", "unit": target_unit},
+    }
+    if factor != "missing":
+        entry["conversion_factor"] = factor
+    _add_package(data_root, "unit-change.json", 2, [entry])
+    match = "unit-change.json entry 0: conversion_factor is required to map"
+    with pytest.raises(ValueError, match=match):
+        load_bridge(data_root)
+
+
+def test_explicit_factor_with_changed_unit_is_kept(data_root):
+    _add_package(
+        data_root,
+        "explicit.json",
+        2,
+        [
+            {
+                "source": {"code": "new", "unit": "m3"},
+                "target": {"code": "tgt", "unit": "kg"},
+                "conversion_factor": 0.8,
+            }
+        ],
+    )
+    assert load_bridge(data_root)["new"].conversion_factor == 0.8
+
+
 def test_legacy_absent_source_declaration_stays_readable(data_root):
     _add_package(
         data_root,

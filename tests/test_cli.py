@@ -26,6 +26,7 @@ def test_cli_unit_conflict_refuses_file_export(data_root, tmp_path, capsys):
     path = folder / "biosphere-4-nomenclature.json"
     payload = json.loads(path.read_text())
     payload["replace"][1]["target"]["unit"] = "kBq"
+    payload["replace"][1]["conversion_factor"] = 1.0  # passes the bridge, conflicts later
     path.write_text(json.dumps(payload))
     out = tmp_path / "out"
     rc = cli.main(["files", "--data-root", str(data_root), "--out", str(out)])
@@ -214,6 +215,7 @@ def test_cli_coverage_reports_unit_conflicts_without_refusing(data_root, capsys)
     path = folder / "biosphere-4-nomenclature.json"
     payload = json.loads(path.read_text())
     payload["replace"][1]["target"]["unit"] = "kBq"
+    payload["replace"][1]["conversion_factor"] = 1.0  # passes the bridge, conflicts later
     path.write_text(json.dumps(payload))
     rc = cli.main(["coverage", "--data-root", str(data_root)])
     assert rc == 0

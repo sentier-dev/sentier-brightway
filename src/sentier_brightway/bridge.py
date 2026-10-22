@@ -16,7 +16,7 @@ from typing import Mapping
 
 from ._frames import data_root_error
 from .constants import BRIDGE_FOLDER, NOMENCLATURE_KIND_ORDER, REPO_MAPPINGS
-from .units import required_scale_factor
+from .units import normalize_unit, required_scale_factor
 
 SUPPORTED_SCHEMA_MAJOR = "0"
 
@@ -81,6 +81,13 @@ def _entry_fields(entry: dict, path: Path, i: int) -> tuple[str, dict]:
     if expected is not None and not math.isclose(factor, expected, rel_tol=1e-12):
         raise ValueError(
             f"{path} entry {i}: conversion_factor {expected:g} is required for declared units"
+        )
+    # A null factor means "same quantity"; only a unit spelling may change without one.
+    source_unit, target_unit = source.get("unit"), target.get("unit")
+    if cf is None and source_unit and normalize_unit(source_unit) != normalize_unit(target_unit):
+        raise ValueError(
+            f"{path} entry {i}: conversion_factor is required to map {source_unit!r} "
+            f"to {target_unit!r}"
         )
     fields = {
         "target_code": target_code,

@@ -22,8 +22,9 @@ uncertainty and bounds are converted together. Packages declaring characterizati
 fallbacks require a method-scoped consumer and are refused by this direct EF bridge;
 [sentier-bafu #14](https://github.com/sentier-dev/sentier-bafu/issues/14) and
 [#15](https://github.com/sentier-dev/sentier-bafu/issues/15) track these contracts.
-Declared Bq→kBq, km→m and kWh→MJ mappings need their explicit correct multiplier;
-a missing or null multiplier cannot silently default these magnitude changes to one.
+Declared Bq→kBq, km→m and kWh→MJ mappings need their explicit correct multiplier.
+A missing or null multiplier defaults to one only when the declared source and target
+units are the same unit; any other unit change without a multiplier is refused.
 
 ```mermaid
 flowchart LR

@@ -43,6 +43,7 @@ from .flow_lists_output import (  # noqa: F401  (re-exported for callers and tes
 from .flows import load_ef_flows, load_source_flows
 from .inventory import Inventory, load_inventory
 from .methods import MethodSpec, load_methods
+from .units import normalize_unit
 
 COVERAGE_FILE = "coverage.json"
 STATUSES = frozenset({"mapped", "unmapped"})
@@ -180,6 +181,7 @@ BAFU_TO_EF_COLUMNS = (
     "ef_name",
     "ef_context",
     "ef_unit",
+    "ef_location",
     "ef_cas",
     "conversion_factor",
     "ef_methods_with_factor",
@@ -226,6 +228,25 @@ def _check_coverage_against_inputs(
     unknown = {bridge[c].target_code for c in mapped} - known
     if unknown:
         raise ValueError(f"bridge targets unknown to vocab and EF methods: {_first(unknown)}")
+    is_nomenclature = coverage["package"] == "nomenclature"
+    disagree = [
+        code
+        for code, flag in zip(coverage["bafu_code"], is_nomenclature)
+        if code in mapped and flag != bridge[code].nomenclature
+    ]
+    if disagree:
+        raise ValueError(
+            f"coverage package disagrees with the bridge on nomenclature-only: {_first(disagree)}"
+        )
+
+
+def installed_units(bridge: Mapping[str, BridgeEntry]) -> dict[str, str]:
+    """Unit of each EF flow as the Brightway biosphere installs it: the first bridge entry
+    per target, in package order, with the Brightway unit spelling (same rule as ``build``)."""
+    units: dict[str, str] = {}
+    for entry in bridge.values():
+        units.setdefault(entry.target_code, normalize_unit(entry.target_unit))
+    return units
 
 
 def build_bafu_to_ef(
@@ -244,6 +265,7 @@ def build_bafu_to_ef(
     bafu_cas = {c: (v or "") for c, v in zip(bafu_flows["code"], bafu_flows["cas_number"])}
     ef = ef_table.set_index("code")
     per_flow = methods_per_flow(methods)
+    units = installed_units(bridge)
     rows = []
     for rec in coverage.to_dict("records"):
         code = rec["bafu_code"]
@@ -257,7 +279,8 @@ def build_bafu_to_ef(
                 ef_uuid=entry.target_code,
                 ef_name=target["name"],
                 ef_context=target["context"],
-                ef_unit=entry.target_unit,
+                ef_unit=units[entry.target_code],
+                ef_location=entry.target_location or "",
                 ef_cas=target["cas"],
                 conversion_factor=entry.conversion_factor,
                 ef_methods_with_factor=len(per_flow.get(entry.target_code, ())),
@@ -270,6 +293,7 @@ def build_bafu_to_ef(
                 ef_name="",
                 ef_context="",
                 ef_unit="",
+                ef_location="",
                 ef_cas="",
                 conversion_factor=None,
                 ef_methods_with_factor=0,
@@ -315,9 +339,7 @@ def build_ef_flows(
     methods: tuple[MethodSpec, ...],
 ) -> pd.DataFrame:
     """The distinct EF 3.1 flows the mapped BAFU flows land on."""
-    units: dict[str, str] = {}
-    for entry in bridge.values():  # package order, first wins: same rule as build()
-        units.setdefault(entry.target_code, entry.target_unit)
+    units = installed_units(bridge)
     per_flow = methods_per_flow(methods)
     mapped = bafu_to_ef[bafu_to_ef["status"] == "mapped"]
     grouped = mapped.groupby("ef_uuid", sort=False).agg(
@@ -347,7 +369,7 @@ def build_processes(inventory: Inventory) -> pd.DataFrame:
             "reference_product": p["reference_product"],
             "unit": p["reference_unit"],
             "location": p["location"],
-            "sector": p["sector"] if "sector" in p.columns else "",
+            "sector": p["sector"],
             "process_type": p["process_type"],
             "code": p["process_id"],
             "brightway_database": inventory_db(inventory.source),
@@ -387,7 +409,15 @@ def export(
     frames = {"bafu_to_ef": bafu_to_ef, "ef_flows": ef_flows, "processes": processes}
     counts = {name: int(len(df)) for name, df in frames.items()}
     headline = headline_numbers(bafu_to_ef, ef_flows, processes)
-    readme = readme_rows(repo_pins(data_root), counts, headline, today, inventory.source)
+    readme = readme_rows(
+        repo_pins(data_root),
+        counts,
+        headline,
+        today,
+        source=inventory.source,
+        source_version=inventory.source_version,
+        n_methods=len(methods),
+    )
     stem = f"{BRIDGE_FOLDER}_flow-lists_{today.isoformat()}"
     xlsx = write_outputs(frames, readme, out_dir, stem, overwrite=overwrite)
     return ExportResult(xlsx=xlsx, counts=counts, headline=headline)

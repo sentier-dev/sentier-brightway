@@ -5,8 +5,10 @@ unmapped used flow (B5), the nomenclature target E3 in the EF vocab, and a cover
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
@@ -253,6 +255,23 @@ def test_bafu_to_ef_one_row_per_coverage_row_with_ef_fields(flow_root):
     assert b1["brightway_database"] == "ef-3.1-biosphere" and b1["brightway_code"] == E1
     assert by.loc[B2, "conversion_factor"] == 0.001
     assert by.loc[B2, "bafu_cas"] == ""
+    assert by.loc[B2, "ef_unit"] == "kilo Becquerel"  # Brightway spelling, not the bridge's kBq
+    assert by.loc[B1, "ef_location"] == "" and by.loc[B5, "ef_location"] == ""
+
+
+def test_bafu_to_ef_carries_regionalised_target_location(flow_root):
+    kw = _inputs(flow_root)
+    entry = kw["bridge"][B1]
+    kw["bridge"] = {**kw["bridge"], B1: replace(entry, target_location="CH")}
+    by = fl.build_bafu_to_ef(**kw).set_index("bafu_code")
+    assert by.loc[B1, "ef_location"] == "CH"
+
+
+def test_bafu_to_ef_rejects_package_disagreeing_with_bridge(flow_root):
+    kw = _inputs(flow_root)
+    kw["coverage"].loc[kw["coverage"]["bafu_code"] == B1, "package"] = "nomenclature"
+    with pytest.raises(ValueError, match=B1):
+        fl.build_bafu_to_ef(**kw)
 
 
 def test_bafu_to_ef_nomenclature_row_has_zero_methods(flow_root):
@@ -357,7 +376,7 @@ def _git(cwd: Path, *args: str) -> str:
         "GIT_COMMITTER_NAME": "t",
         "GIT_COMMITTER_EMAIL": "t@t",
         "HOME": str(cwd),
-        "PATH": "/usr/bin:/bin",
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
     }
     done = subprocess.run(
         ["git", *args], cwd=cwd, env=env, check=True, capture_output=True, text=True
@@ -413,10 +432,12 @@ def test_export_writes_xlsx_csvs_and_readme(flow_root, tmp_path):
     joined = "\n".join(str(v) for v in readme_cells)
     assert "sentier-mappings" in joined and "unknown" in joined  # fixture has no git
     assert "BAFU:2026" in joined and "2026-10-26" in joined
+    side = out / "bafu-2026-v1__ef-3.1_flow-lists_2026-10-26"
     for name in ("bafu_to_ef", "ef_flows", "processes"):
-        assert (out / "csv" / f"{name}.csv").is_file()
-    assert len(pd.read_csv(out / "csv" / "bafu_to_ef.csv")) == 4
-    text = (out / "README.md").read_text()
+        assert (side / "csv" / f"{name}.csv").is_file()
+    assert len(pd.read_csv(side / "csv" / "bafu_to_ef.csv")) == 4
+    text = (side / "README.md").read_text()
+    assert "of the 2 EF 3.1 methods" in text and "sentier-inventory/data/bafu-2026-v1" in text
     assert "bafu_to_ef" in text and "ef-3.1-biosphere" in text and "bafu-2026-residual" in text
     for name in fl.SHEETS[1:]:
         assert name in text  # column dictionary names each data sheet
@@ -435,6 +456,10 @@ def test_export_refuses_to_overwrite_unless_asked(flow_root, tmp_path):
     with pytest.raises(FileExistsError, match="flow-lists"):
         fl.export(flow_root, out, today=date(2026, 10, 26))
     fl.export(flow_root, out, today=date(2026, 10, 26), overwrite=True)
+    # a second date into the same folder keeps the first run's side artifacts intact
+    fl.export(flow_root, out, today=date(2026, 10, 27))
+    assert (out / "bafu-2026-v1__ef-3.1_flow-lists_2026-10-26" / "README.md").is_file()
+    assert (out / "bafu-2026-v1__ef-3.1_flow-lists_2026-10-27" / "README.md").is_file()
 
 
 def test_export_defaults_date_to_today(flow_root, tmp_path):

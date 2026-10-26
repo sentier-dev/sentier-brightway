@@ -86,8 +86,10 @@ COLUMN_NOTES = {
         "mapped (relinked to an EF 3.1 flow) or unmapped (kept under its BAFU name). package = "
         "which bridge package of sentier-mappings placed it: curated, inferred, matched, or "
         "nomenclature (valid EF flow key, but no factor in any EF 3.1 method). ef_* columns are "
-        "the EF 3.1 target (ef_uuid = EF flow UUID, the Brightway code); conversion_factor "
-        "multiplies the BAFU amount. ef_methods_with_factor = number of the 25 EF 3.1 methods "
+        "the EF 3.1 target (ef_uuid = EF flow UUID, the Brightway code; ef_unit as Brightway "
+        "installs it; ef_location set when the bridge points at a regionalised target); "
+        "conversion_factor multiplies the BAFU amount. ef_methods_with_factor = number of the "
+        "{n_methods} EF 3.1 methods "
         "with a global factor for the target (0 for nomenclature and unmapped rows). "
         "brightway_database / brightway_code = where the flow lives after import. reason and "
         "detail explain unmapped rows; caveats and cas_conflict carry the curators' notes."
@@ -132,13 +134,15 @@ def readme_rows(
     headline: Mapping[str, int],
     today: date,
     source: str = DEFAULT_SOURCE,
+    source_version: str | None = None,
+    n_methods: int = 0,
 ) -> list[tuple[str, str]]:
     """The README sheet as (key, value) rows; a blank key starts a free-text paragraph."""
     rows: list[tuple[str, str]] = [
         ("title", f"{source} elementary flows and processes as implemented in Brightway"),
         ("generated", today.isoformat()),
         ("generator", f"sentier-brightway {__version__}, scripts/export_flow_lists.py"),
-        ("inventory folder", f"{REPO_INVENTORY}/data/{BRIDGE_FOLDER.split('__')[0]}"),
+        ("inventory folder", f"{REPO_INVENTORY}/data/{source}-{source_version or 'unknown'}"),
         ("bridge folder", f"{REPO_MAPPINGS}/data/{BRIDGE_FOLDER}"),
     ]
     rows += [(f"git {p.repo}", p.label) for p in pins]
@@ -159,7 +163,8 @@ def readme_rows(
         )
     )
     for name in SHEETS[1:]:
-        rows.append(("", f"Sheet {name}: {COLUMN_NOTES[name]}"))
+        note = COLUMN_NOTES[name].format(n_methods=n_methods)
+        rows.append(("", f"Sheet {name}: {note}"))
     return rows
 
 
@@ -198,15 +203,18 @@ def write_outputs(
     stem: str,
     overwrite: bool = False,
 ) -> Path:
-    """CSVs under ``out_dir/csv``, ``README.md``, then the xlsx; returns the xlsx path."""
+    """The xlsx ``out_dir/<stem>.xlsx`` plus its side artifacts ``out_dir/<stem>/csv/*.csv``
+    and ``out_dir/<stem>/README.md``; returns the xlsx path. The side folder carries the same
+    stem as the workbook, so two runs into one folder never describe each other's file."""
     out_dir = Path(out_dir)
     xlsx = out_dir / f"{stem}.xlsx"
-    if xlsx.exists() and not overwrite:
-        raise FileExistsError(f"{xlsx} exists; pass overwrite=True (--overwrite) to replace it")
-    (out_dir / "csv").mkdir(parents=True, exist_ok=True)
-    for name, df in frames.items():
-        df.to_csv(out_dir / "csv" / f"{name}.csv", index=False, encoding="utf-8")
-    (out_dir / "README.md").write_text(readme_markdown(readme), encoding="utf-8")
+    side = out_dir / stem
+    for existing in (xlsx, side):
+        if existing.exists() and not overwrite:
+            raise FileExistsError(
+                f"{existing} exists; pass overwrite=True (--overwrite) to replace it"
+            )
+    out_dir.mkdir(parents=True, exist_ok=True)
     readme_df = pd.DataFrame(readme, columns=["key", "value"])
     with pd.ExcelWriter(xlsx, engine="openpyxl") as writer:
         readme_df.to_excel(writer, sheet_name="README", index=False)
@@ -218,4 +226,8 @@ def write_outputs(
                 ws.auto_filter.ref = ws.dimensions
             _set_widths(ws)
     _verify_workbook(xlsx, frames)
+    (side / "csv").mkdir(parents=True, exist_ok=True)
+    for name, df in frames.items():
+        df.to_csv(side / "csv" / f"{name}.csv", index=False, encoding="utf-8")
+    (side / "README.md").write_text(readme_markdown(readme), encoding="utf-8")
     return xlsx

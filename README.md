@@ -77,6 +77,21 @@ Click a box (or its label) for the worst-200 list of that category, sortable and
 
 `backtest` writes `emissions.csv`, `vs_bafu.csv`, `boxes.json` and `worst/<short>.json` alongside the page.
 
+### Flow lists for method developers
+
+```bash
+uv run python scripts/export_flow_lists.py --data-root ~/dds --out flow-lists
+```
+
+Writes `flow-lists/bafu-2026-v1__ef-3.1_flow-lists_<date>.xlsx`: a README sheet (git pins of
+the four data checkouts, counts, column dictionary), `bafu_to_ef` (one row per BAFU-2026
+elementary flow used by the inventory, with the bridge package that placed it, the EF 3.1
+target flow, how many EF 3.1 methods characterise it, and where it lives in Brightway),
+`ef_flows` (the distinct EF 3.1 flows reached) and `processes` (the technosphere
+nomenclature). `csv/` and `README.md` next to it are side artifacts of the same run. The
+script reads local checkouts only, cross-checks `coverage.json` against the bridge and the
+inventory, and exits 1 on any disagreement. Nothing it writes is committed.
+
 ### Options
 
 | Flag | Commands | Effect |

@@ -14,7 +14,8 @@ from sentier_brightway import flow_lists as fl
 from sentier_brightway.bridge import load_bridge
 from sentier_brightway.flows import load_ef_flows, load_source_flows
 from sentier_brightway.inventory import load_inventory
-from tests.conftest import B1, B2, B3, E3, FLOWS, INVENTORY_FOLDER, P2
+from sentier_brightway.methods import load_methods
+from tests.conftest import B1, B2, B3, CLIMATE, E1, E2, E3, FLOWS, INVENTORY_FOLDER, IONISING, P2
 
 B5 = "b5b5b5b5-0000-5000-8000-000000000005"  # used by P2, no EF counterpart (unmapped)
 EF_SOURCE = "https://vocab.sentier.dev/sources/ef-3.1"
@@ -186,3 +187,31 @@ def test_load_coverage_rejects_missing_source_code(flow_root):
 def test_load_coverage_missing_file_names_the_path(data_root):
     with pytest.raises(FileNotFoundError, match="coverage.json"):
         fl.load_coverage(data_root)
+
+
+# ------------------------------------------------------------------ EF side
+
+
+def test_ef_flow_table_prefers_cf_context_and_falls_back_to_methods(flow_root):
+    table = fl.ef_flow_table(load_ef_flows(flow_root), load_methods(flow_root))
+    by = table.set_index("code")
+    assert by.loc[E1, "name"] == "carbon dioxide (fossil)"
+    assert by.loc[E1, "context"] == "Emissions / Emissions to air / Emissions to air, unspecified"
+    assert by.loc[E1, "cas"] == "124-38-9"
+    assert by.loc[E3, "context"] == "air"  # vocab only: no CF row for E3
+    assert by.loc[E3, "cas"] == ""
+
+
+def test_ef_flow_table_includes_cf_only_flows(flow_root):
+    ef = load_ef_flows(flow_root)
+    ef = ef[ef["code"] != E2]  # pretend vocab lacks E2; the methods table still knows it
+    by = fl.ef_flow_table(ef, load_methods(flow_root)).set_index("code")
+    assert by.loc[E2, "name"] == "uranium-238"
+    assert by.loc[E2, "context"].startswith("Emissions / Emissions to water")
+
+
+def test_methods_per_flow_counts_only_global_factors(flow_root):
+    per = fl.methods_per_flow(load_methods(flow_root))
+    assert per[E1] == (CLIMATE,)
+    assert per[E2] == (IONISING,)
+    assert E3 not in per

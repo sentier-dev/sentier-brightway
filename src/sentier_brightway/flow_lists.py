@@ -20,6 +20,7 @@ import pandas as pd
 
 from ._frames import data_root_error
 from .constants import BRIDGE_FOLDER, REPO_MAPPINGS
+from .methods import MethodSpec
 
 COVERAGE_FILE = "coverage.json"
 STATUSES = frozenset({"mapped", "unmapped"})
@@ -93,3 +94,47 @@ def load_coverage(data_root: Path) -> pd.DataFrame:
             }
         )
     return pd.DataFrame(out, columns=list(COVERAGE_COLUMNS))
+
+
+# ------------------------------------------------------------------ EF side lookups
+
+
+def ef_flow_table(ef_flows: pd.DataFrame, methods: tuple[MethodSpec, ...]) -> pd.DataFrame:
+    """Every EF 3.1 flow the Brightway biosphere can hold: columns ``code, name, context, cas``.
+
+    Same precedence as ``build.build_biosphere``: the vocab names a flow first, a method's
+    CF table names flows the vocab lacks, and the CF context (three levels) beats the vocab
+    compartment because it is more specific."""
+    names: dict[str, str] = dict(zip(ef_flows["code"], ef_flows["name"]))
+    cas: dict[str, str] = {c: (v or "") for c, v in zip(ef_flows["code"], ef_flows["cas_number"])}
+    context: dict[str, str] = {
+        c: " / ".join(cats) for c, cats in zip(ef_flows["code"], ef_flows["categories"])
+    }
+    cf_context: dict[str, str] = {}
+    for spec in methods:
+        for code, name in spec.flow_name.items():
+            names.setdefault(code, name)
+        for code, ctx in spec.flow_context.items():
+            if ctx:
+                cf_context.setdefault(code, " / ".join(ctx))
+    context.update(cf_context)
+    codes = sorted(names)
+    return pd.DataFrame(
+        {
+            "code": codes,
+            "name": [names[c] for c in codes],
+            "context": [context.get(c, "") for c in codes],
+            "cas": [cas.get(c, "") for c in codes],
+        }
+    )
+
+
+def methods_per_flow(methods: tuple[MethodSpec, ...]) -> dict[str, tuple[str, ...]]:
+    """``{ef_flow_code: (method_id, ...)}`` over the global characterization factors."""
+    out: dict[str, list[str]] = {}
+    for spec in methods:
+        for code, _factor in spec.cfs:
+            ids = out.setdefault(code, [])
+            if spec.method_id not in ids:
+                ids.append(spec.method_id)
+    return {code: tuple(ids) for code, ids in out.items()}

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from datetime import date
 from pathlib import Path
 
@@ -437,3 +438,34 @@ def test_export_refuses_to_overwrite_unless_asked(flow_root, tmp_path):
 def test_export_defaults_date_to_today(flow_root, tmp_path):
     result = fl.export(flow_root, tmp_path / "o")
     assert date.today().isoformat() in result.xlsx.name
+
+
+# ------------------------------------------------------------------ script
+
+
+def _run_script(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run([sys.executable, str(SCRIPT), *args], capture_output=True, text=True)
+
+
+def test_script_writes_workbook_and_prints_path(flow_root, tmp_path):
+    out = tmp_path / "o"
+    done = _run_script("--data-root", str(flow_root), "--out", str(out), "--date", "2026-10-26")
+    assert done.returncode == 0, done.stderr
+    assert str(out / "bafu-2026-v1__ef-3.1_flow-lists_2026-10-26.xlsx") in done.stdout
+    assert "flows_mapped: 3" in done.stdout and "flows_unmapped: 1" in done.stdout
+
+
+def test_script_fails_with_message_on_broken_root(tmp_path):
+    (tmp_path / "empty").mkdir()
+    done = _run_script("--data-root", str(tmp_path / "empty"), "--out", str(tmp_path / "o"))
+    assert done.returncode == 1
+    assert "sentier-inventory" in done.stderr
+
+
+def test_script_refuses_overwrite_then_accepts_flag(flow_root, tmp_path):
+    out = tmp_path / "o"
+    args = ("--data-root", str(flow_root), "--out", str(out), "--date", "2026-10-26")
+    assert _run_script(*args).returncode == 0
+    second = _run_script(*args)
+    assert second.returncode == 1 and "--overwrite" in second.stderr
+    assert _run_script(*args, "--overwrite").returncode == 0

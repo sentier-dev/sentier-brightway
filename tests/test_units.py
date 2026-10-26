@@ -1,4 +1,6 @@
-from sentier_brightway.units import normalize_unit
+import pytest
+
+from sentier_brightway.units import normalize_unit, required_scale_factor
 
 
 def test_known_bafu_spellings():
@@ -28,3 +30,27 @@ def test_none_becomes_empty_string():
 
 def test_nan_becomes_empty_string():
     assert normalize_unit(float("nan")) == ""
+
+
+@pytest.mark.parametrize(
+    "source,target,factor",
+    [
+        ("Bq", "kBq", 0.001),
+        ("kBq", "Bq", 1000.0),
+        ("km", "m", 1000.0),
+        ("m", "km", 0.001),
+        ("kWh", "MJ", 3.6),
+        ("MJ", "kWh", 1 / 3.6),
+        ("ha", "m2", 10000.0),
+        ("m2", "ha", 0.0001),
+    ],
+)
+def test_magnitude_changes_are_required_in_both_directions(source, target, factor):
+    assert required_scale_factor(source, target) == pytest.approx(factor, rel=1e-12)
+
+
+@pytest.mark.parametrize(
+    "source,target", [("kg", "kg"), ("Bq", "Bq"), ("kg", "MJ"), ("Nm3", "m3"), ("furlong", "m")]
+)
+def test_no_factor_without_a_known_magnitude_change(source, target):
+    assert required_scale_factor(source, target) is None

@@ -28,8 +28,7 @@ B3 = "b3b3b3b3-0000-5000-8000-000000000003"
 E1 = "e1e1e1e1-0000-4000-8000-000000000001"
 E2 = "e2e2e2e2-0000-4000-8000-000000000002"
 E3 = "e3e3e3e3-0000-4000-8000-000000000003"  # EF flow with no factor; nomenclature target of B3
-# B4: nomenclature entry onto E1 with a *different* unit (kBq vs kilogram) and no exchange
-# rows, so it exercises the bridge unit-conflict warning without touching any score
+# B4: a second, unused source targeting E1 in the same canonical unit.
 B4 = "b4b4b4b4-0000-5000-8000-000000000004"
 FLOWS = "https://vocab.sentier.dev/flows/"
 CLIMATE = "ef-3.1:climate-change"
@@ -376,15 +375,15 @@ def _write_bridge(root: Path) -> None:
             },
             {
                 "source": {
-                    "name": "Carbon dioxide, fossil, activity",
+                    "name": "Carbon dioxide, fossil, second source",
                     "code": B4,
-                    "unit": "kBq",
+                    "unit": "kg",
                     "context": ["emissions to air", "unspecified"],
                 },
                 "target": {
                     "name": "carbon dioxide (fossil)",
                     "code": E1,
-                    "unit": "kBq",
+                    "unit": "kilogram",
                     "context": ["Emissions", "Emissions to air", "Emissions to air, unspecified"],
                 },
             },

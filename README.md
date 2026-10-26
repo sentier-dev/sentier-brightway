@@ -15,6 +15,17 @@ flowchart LR
 BAFU-2026 v1 life cycle inventory, the EF 3.1 biosphere and the 25 EF 3.1 impact methods, linked through the Sentier flow mappings. Ready for Brightway and Activity Browser.
 Data is fetched from pinned commits of the four Sentier data repos on first use. Nothing ships in the package. Install it in the Python environment where Brightway or Activity Browser lives.
 
+Mapping imports check declared source units against exchange units and require positive,
+finite conversion factors. A shared target flow must have one unit: conflicting target
+units stop the build before export or database writes. Amounts, signed normal/lognormal
+uncertainty and bounds are converted together. Packages declaring characterization-factor
+fallbacks require a method-scoped consumer and are refused by this direct EF bridge;
+[sentier-bafu #14](https://github.com/sentier-dev/sentier-bafu/issues/14) and
+[#15](https://github.com/sentier-dev/sentier-bafu/issues/15) track these contracts.
+Declared Bq→kBq, km→m and kWh→MJ mappings need their explicit correct multiplier.
+A missing or null multiplier defaults to one only when the declared source and target
+units are the same unit; any other unit change without a multiplier is refused.
+
 ```mermaid
 flowchart LR
     f[fetch pinned data] --> b[relink BAFU flows onto EF 3.1] --> w[write project or files]
@@ -93,7 +104,10 @@ Click a box (or its label) for the worst-200 list of that category, sortable and
 
 Pinned data links 2,566 of 2,679 BAFU flows (95.8 %) and 96.8 % of biosphere exchanges to EF 3.1. The 113 unlinked flows stay in `bafu-2026-residual` with their exchanges intact. Pins live in `src/sentier_brightway/sources.toml`; `uv run sentier-brightway coverage` prints the full report.
 
-Limitations (v0.1): global EF factors only, no regionalized factors such as country water use; only BAFU-2026 v1 and EF 3.1; static values, no uncertainty distributions; no flow drill-down in the backtest dashboard.
+Limitations (v0.1): global EF factors only, no regionalized factors such as country water use;
+only BAFU-2026 v1 and EF 3.1; the backtest calculates deterministic scores rather than
+uncertainty samples; no flow drill-down in the backtest dashboard. Normal/lognormal exchange
+uncertainty and bounds are preserved in the imported project and file registry.
 
 ## Contributing
 

@@ -215,3 +215,94 @@ def test_methods_per_flow_counts_only_global_factors(flow_root):
     assert per[E1] == (CLIMATE,)
     assert per[E2] == (IONISING,)
     assert E3 not in per
+
+
+# ------------------------------------------------------------------ bafu_to_ef
+
+
+def _inputs(root: Path) -> dict:
+    inv = load_inventory(root)
+    methods = load_methods(root)
+    return dict(
+        coverage=fl.load_coverage(root),
+        bridge=load_bridge(root),
+        ef_table=fl.ef_flow_table(load_ef_flows(root), methods),
+        bafu_flows=load_source_flows(root),
+        exchanges=inv.exchanges,
+        methods=methods,
+        source=inv.source,
+    )
+
+
+def test_bafu_to_ef_one_row_per_coverage_row_with_ef_fields(flow_root):
+    df = fl.build_bafu_to_ef(**_inputs(flow_root))
+    assert list(df.columns) == list(fl.BAFU_TO_EF_COLUMNS)
+    assert len(df) == 4 and df["bafu_code"].is_unique
+    by = df.set_index("bafu_code")
+    b1 = by.loc[B1]
+    assert b1["ef_uuid"] == E1 and b1["ef_name"] == "carbon dioxide (fossil)"
+    assert b1["ef_unit"] == "kilogram" and b1["conversion_factor"] == 1.0
+    assert b1["ef_context"] == "Emissions / Emissions to air / Emissions to air, unspecified"
+    assert b1["ef_cas"] == "124-38-9" and b1["bafu_cas"] == "124-38-9"
+    assert b1["exchange_count"] == 2
+    assert b1["ef_methods_with_factor"] == 1
+    assert b1["brightway_database"] == "ef-3.1-biosphere" and b1["brightway_code"] == E1
+    assert by.loc[B2, "conversion_factor"] == 0.001
+    assert by.loc[B2, "bafu_cas"] == ""
+
+
+def test_bafu_to_ef_nomenclature_row_has_zero_methods(flow_root):
+    by = fl.build_bafu_to_ef(**_inputs(flow_root)).set_index("bafu_code")
+    assert by.loc[B3, "package"] == "nomenclature"
+    assert by.loc[B3, "ef_uuid"] == E3 and by.loc[B3, "ef_methods_with_factor"] == 0
+    assert by.loc[B3, "exchange_count"] == 2
+
+
+def test_bafu_to_ef_unmapped_row_goes_to_residual(flow_root):
+    by = fl.build_bafu_to_ef(**_inputs(flow_root)).set_index("bafu_code")
+    b5 = by.loc[B5]
+    assert b5["status"] == "unmapped" and b5["ef_uuid"] == "" and b5["ef_name"] == ""
+    assert b5["ef_methods_with_factor"] == 0
+    assert b5["brightway_database"] == "bafu-2026-residual" and b5["brightway_code"] == B5
+    assert b5["reason"] == "no_ef_flow" and b5["exchange_count"] == 1
+
+
+def test_bafu_to_ef_sorted_by_compartment_then_name(flow_root):
+    df = fl.build_bafu_to_ef(**_inputs(flow_root))
+    keys = list(zip(df["bafu_compartment"], df["bafu_sub_compartment"], df["bafu_name"]))
+    assert keys == sorted(keys)
+
+
+def test_bafu_to_ef_rejects_mapped_row_missing_from_bridge(flow_root):
+    kw = _inputs(flow_root)
+    kw["bridge"] = {k: v for k, v in kw["bridge"].items() if k != B2}
+    with pytest.raises(ValueError, match=B2):
+        fl.build_bafu_to_ef(**kw)
+
+
+def test_bafu_to_ef_rejects_unmapped_row_present_in_bridge(flow_root):
+    kw = _inputs(flow_root)
+    kw["coverage"].loc[kw["coverage"]["bafu_code"] == B2, "status"] = "unmapped"
+    with pytest.raises(ValueError, match=B2):
+        fl.build_bafu_to_ef(**kw)
+
+
+def test_bafu_to_ef_rejects_coverage_set_different_from_used_flows(flow_root):
+    kw = _inputs(flow_root)
+    kw["coverage"] = kw["coverage"][kw["coverage"]["bafu_code"] != B5]
+    with pytest.raises(ValueError, match=B5):
+        fl.build_bafu_to_ef(**kw)
+
+
+def test_bafu_to_ef_rejects_target_unknown_to_ef_table(flow_root):
+    kw = _inputs(flow_root)
+    kw["ef_table"] = kw["ef_table"][kw["ef_table"]["code"] != E3]
+    with pytest.raises(ValueError, match=E3):
+        fl.build_bafu_to_ef(**kw)
+
+
+def test_bafu_to_ef_rejects_duplicate_coverage_code(flow_root):
+    kw = _inputs(flow_root)
+    kw["coverage"] = pd.concat([kw["coverage"], kw["coverage"].iloc[[0]]], ignore_index=True)
+    with pytest.raises(ValueError, match="duplicate"):
+        fl.build_bafu_to_ef(**kw)

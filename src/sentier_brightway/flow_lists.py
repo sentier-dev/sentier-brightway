@@ -15,11 +15,13 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from typing import Mapping
 
 import pandas as pd
 
 from ._frames import data_root_error
-from .constants import BRIDGE_FOLDER, REPO_MAPPINGS
+from .bridge import BridgeEntry
+from .constants import BIOSPHERE_DB, BRIDGE_FOLDER, DEFAULT_SOURCE, REPO_MAPPINGS, residual_db
 from .methods import MethodSpec
 
 COVERAGE_FILE = "coverage.json"
@@ -138,3 +140,124 @@ def methods_per_flow(methods: tuple[MethodSpec, ...]) -> dict[str, tuple[str, ..
             if spec.method_id not in ids:
                 ids.append(spec.method_id)
     return {code: tuple(ids) for code, ids in out.items()}
+
+
+# ------------------------------------------------------------------ bafu_to_ef sheet
+
+BAFU_TO_EF_COLUMNS = (
+    "bafu_name",
+    "bafu_code",
+    "bafu_unit",
+    "bafu_compartment",
+    "bafu_sub_compartment",
+    "bafu_cas",
+    "exchange_count",
+    "status",
+    "package",
+    "tier",
+    "placement",
+    "ef_uuid",
+    "ef_name",
+    "ef_context",
+    "ef_unit",
+    "ef_cas",
+    "conversion_factor",
+    "ef_methods_with_factor",
+    "brightway_database",
+    "brightway_code",
+    "reason",
+    "detail",
+    "caveats",
+    "cas_conflict",
+)
+
+
+def _first(codes) -> str:
+    return ", ".join(sorted(codes)[:5])
+
+
+def _check_coverage_against_inputs(
+    coverage: pd.DataFrame,
+    bridge: Mapping[str, BridgeEntry],
+    ef_table: pd.DataFrame,
+    exchanges: pd.DataFrame,
+) -> None:
+    """Every disagreement between the sidecar, the bridge and the inventory is an error."""
+    dup = coverage["bafu_code"][coverage["bafu_code"].duplicated()]
+    if not dup.empty:
+        raise ValueError(f"coverage.json: duplicate bafu_code: {_first(dup)}")
+    used = set(exchanges.loc[exchanges["flow_type"] == "biosphere", "flow"])
+    covered = set(coverage["bafu_code"])
+    if used != covered:
+        raise ValueError(
+            "coverage.json rows differ from the flows the inventory uses: "
+            f"used but not covered: {_first(used - covered) or '-'}; "
+            f"covered but not used: {_first(covered - used) or '-'}"
+        )
+    mapped = set(coverage.loc[coverage["status"] == "mapped", "bafu_code"])
+    unmapped = covered - mapped
+    missing = mapped - set(bridge)
+    if missing:
+        raise ValueError(f"coverage says mapped but no bridge entry: {_first(missing)}")
+    stray = unmapped & set(bridge)
+    if stray:
+        raise ValueError(f"coverage says unmapped but the bridge maps it: {_first(stray)}")
+    known = set(ef_table["code"])
+    unknown = {bridge[c].target_code for c in mapped} - known
+    if unknown:
+        raise ValueError(f"bridge targets unknown to vocab and EF methods: {_first(unknown)}")
+
+
+def build_bafu_to_ef(
+    coverage: pd.DataFrame,
+    bridge: Mapping[str, BridgeEntry],
+    ef_table: pd.DataFrame,
+    bafu_flows: pd.DataFrame,
+    exchanges: pd.DataFrame,
+    methods: tuple[MethodSpec, ...],
+    source: str = DEFAULT_SOURCE,
+) -> pd.DataFrame:
+    """One row per BAFU flow the inventory uses, with the EF 3.1 flow it lands on."""
+    _check_coverage_against_inputs(coverage, bridge, ef_table, exchanges)
+    bio = exchanges[exchanges["flow_type"] == "biosphere"]
+    counts = bio["flow"].value_counts()
+    bafu_cas = {c: (v or "") for c, v in zip(bafu_flows["code"], bafu_flows["cas_number"])}
+    ef = ef_table.set_index("code")
+    per_flow = methods_per_flow(methods)
+    rows = []
+    for rec in coverage.to_dict("records"):
+        code = rec["bafu_code"]
+        row = dict(rec)
+        row["bafu_cas"] = bafu_cas.get(code, "")
+        row["exchange_count"] = int(counts.get(code, 0))
+        if rec["status"] == "mapped":
+            entry = bridge[code]
+            target = ef.loc[entry.target_code]
+            row.update(
+                ef_uuid=entry.target_code,
+                ef_name=target["name"],
+                ef_context=target["context"],
+                ef_unit=entry.target_unit,
+                ef_cas=target["cas"],
+                conversion_factor=entry.conversion_factor,
+                ef_methods_with_factor=len(per_flow.get(entry.target_code, ())),
+                brightway_database=BIOSPHERE_DB,
+                brightway_code=entry.target_code,
+            )
+        else:
+            row.update(
+                ef_uuid="",
+                ef_name="",
+                ef_context="",
+                ef_unit="",
+                ef_cas="",
+                conversion_factor=None,
+                ef_methods_with_factor=0,
+                brightway_database=residual_db(source),
+                brightway_code=code,
+            )
+        rows.append(row)
+    df = pd.DataFrame(rows, columns=list(BAFU_TO_EF_COLUMNS))
+    return df.sort_values(
+        ["bafu_compartment", "bafu_sub_compartment", "bafu_name"], kind="stable"
+    ).reset_index(drop=True)

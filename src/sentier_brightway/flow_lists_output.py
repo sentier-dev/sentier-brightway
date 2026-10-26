@@ -37,7 +37,7 @@ REPOS = (REPO_INVENTORY, REPO_VOCAB, REPO_METHODS, REPO_MAPPINGS)
 class RepoPin:
     repo: str
     sha: str  # full git SHA of the checkout read, or "unknown"
-    dirty: bool  # working tree had uncommitted or untracked changes
+    dirty: bool  # the data/ folder had uncommitted or untracked changes
 
     @property
     def label(self) -> str:
@@ -55,12 +55,15 @@ def _git_output(repo_dir: Path, *args: str) -> str | None:
 
 
 def repo_pins(data_root: Path) -> tuple[RepoPin, ...]:
-    """The git state of each data-repo checkout under ``data_root``; never raises."""
+    """The git state of each data-repo checkout under ``data_root``; never raises.
+
+    ``dirty`` looks only at the ``data/`` folder, the part of the repo that is read; an
+    edited ``.gitignore`` or README elsewhere does not taint the pin."""
     pins = []
     for repo in REPOS:
         repo_dir = Path(data_root) / repo
         sha = _git_output(repo_dir, "rev-parse", "HEAD") if (repo_dir / ".git").exists() else None
-        status = _git_output(repo_dir, "status", "--porcelain") if sha else None
+        status = _git_output(repo_dir, "status", "--porcelain", "--", "data") if sha else None
         pins.append(RepoPin(repo=repo, sha=sha or "unknown", dirty=bool(status)))
     return tuple(pins)
 

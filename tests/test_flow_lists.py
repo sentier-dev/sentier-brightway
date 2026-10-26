@@ -371,10 +371,12 @@ def test_repo_pins_sha_dirty_and_unknown(tmp_path):
         d = root / repo
         d.mkdir(parents=True)
         _git(d, "init", "-q")
-        (d / "f").write_text("x")
-        _git(d, "add", "f")
+        (d / "data").mkdir()
+        (d / "data" / "f").write_text("x")
+        _git(d, "add", "data/f")
         _git(d, "commit", "-q", "-m", "init")
-    (root / "sentier-vocab" / "f").write_text("changed")  # dirty tree
+    (root / "sentier-vocab" / "data" / "f").write_text("changed")  # dirty data folder
+    (root / "sentier-inventory" / "README.md").write_text("edited")  # outside data/: clean
     (root / "sentier-mappings").mkdir()  # not a git repo
     pins = {p.repo: p for p in fl.repo_pins(root)}
     assert list(pins) == [

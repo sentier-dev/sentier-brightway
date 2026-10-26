@@ -10,7 +10,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-# flow_lists import added in Task 2
+from sentier_brightway import flow_lists as fl
 from sentier_brightway.bridge import load_bridge
 from sentier_brightway.flows import load_ef_flows, load_source_flows
 from sentier_brightway.inventory import load_inventory
@@ -144,3 +144,45 @@ def test_fixture_has_four_used_flows_and_the_nomenclature_target(flow_root):
     assert E3 in set(load_ef_flows(flow_root)["code"])
     assert B5 in set(load_source_flows(flow_root)["code"])
     assert B5 not in load_bridge(flow_root)
+
+
+# ------------------------------------------------------------------ load_coverage
+
+
+def test_load_coverage_flattens_rows_and_shortens_package(flow_root):
+    cov = fl.load_coverage(flow_root)
+    assert list(cov.columns) == list(fl.COVERAGE_COLUMNS)
+    assert len(cov) == 4
+    by = cov.set_index("bafu_code")
+    assert by.loc[B1, "package"] == "curated"
+    assert by.loc[B3, "package"] == "nomenclature"
+    assert by.loc[B5, "package"] == ""
+    assert by.loc[B5, "status"] == "unmapped"
+    assert by.loc[B5, "reason"] == "no_ef_flow"
+    assert by.loc[B2, "bafu_sub_compartment"] == "lake"
+    assert by.loc[B2, "caveats"] == "unit converted Bq to kBq"
+    assert by.loc[B1, "tier"] == "1"
+    assert by.loc[B1, "caveats"] == ""
+
+
+def test_load_coverage_rejects_unknown_status(flow_root):
+    path = flow_root / BRIDGE_DIR / "coverage.json"
+    body = json.loads(path.read_text())
+    body["coverage"][0]["status"] = "maybe"
+    path.write_text(json.dumps(body))
+    with pytest.raises(ValueError, match="maybe"):
+        fl.load_coverage(flow_root)
+
+
+def test_load_coverage_rejects_missing_source_code(flow_root):
+    path = flow_root / BRIDGE_DIR / "coverage.json"
+    body = json.loads(path.read_text())
+    del body["coverage"][1]["source"]["code"]
+    path.write_text(json.dumps(body))
+    with pytest.raises(ValueError, match="coverage.json"):
+        fl.load_coverage(flow_root)
+
+
+def test_load_coverage_missing_file_names_the_path(data_root):
+    with pytest.raises(FileNotFoundError, match="coverage.json"):
+        fl.load_coverage(data_root)

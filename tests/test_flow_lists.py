@@ -6,8 +6,10 @@ from __future__ import annotations
 
 import json
 import subprocess
+from datetime import date
 from pathlib import Path
 
+import openpyxl
 import pandas as pd
 import pytest
 
@@ -385,3 +387,53 @@ def test_repo_pins_sha_dirty_and_unknown(tmp_path):
     assert pins["sentier-vocab"].dirty is True
     assert pins["sentier-vocab"].label.endswith("+dirty")
     assert pins["sentier-mappings"].sha == "unknown" and pins["sentier-mappings"].dirty is False
+
+
+# ------------------------------------------------------------------ outputs
+
+
+def test_export_writes_xlsx_csvs_and_readme(flow_root, tmp_path):
+    out = tmp_path / "out"
+    result = fl.export(flow_root, out, today=date(2026, 10, 26))
+    assert result.xlsx == out / "bafu-2026-v1__ef-3.1_flow-lists_2026-10-26.xlsx"
+    assert result.counts == {"bafu_to_ef": 4, "ef_flows": 3, "processes": 2}
+    assert result.headline["flows_mapped"] == 3 and result.headline["flows_unmapped"] == 1
+    assert result.headline["flows_nomenclature"] == 1
+    wb = openpyxl.load_workbook(result.xlsx, read_only=True)
+    assert wb.sheetnames == list(fl.SHEETS)
+    ws = wb["bafu_to_ef"]
+    header = [c.value for c in next(ws.iter_rows(min_row=1, max_row=1))]
+    assert header == list(fl.BAFU_TO_EF_COLUMNS)
+    assert ws.max_row == 5
+    assert wb["processes"].max_row == 3
+    readme_cells = [c.value for row in wb["README"].iter_rows() for c in row if c.value]
+    joined = "\n".join(str(v) for v in readme_cells)
+    assert "sentier-mappings" in joined and "unknown" in joined  # fixture has no git
+    assert "BAFU:2026" in joined and "2026-10-26" in joined
+    for name in ("bafu_to_ef", "ef_flows", "processes"):
+        assert (out / "csv" / f"{name}.csv").is_file()
+    assert len(pd.read_csv(out / "csv" / "bafu_to_ef.csv")) == 4
+    text = (out / "README.md").read_text()
+    assert "bafu_to_ef" in text and "ef-3.1-biosphere" in text and "bafu-2026-residual" in text
+    for name in fl.SHEETS[1:]:
+        assert name in text  # column dictionary names each data sheet
+
+
+def test_export_sheets_have_frozen_header_and_autofilter(flow_root, tmp_path):
+    result = fl.export(flow_root, tmp_path / "o", today=date(2026, 10, 26))
+    ws = openpyxl.load_workbook(result.xlsx)["bafu_to_ef"]
+    assert ws.freeze_panes == "A2"
+    assert ws.auto_filter.ref is not None and ws.auto_filter.ref.startswith("A1:")
+
+
+def test_export_refuses_to_overwrite_unless_asked(flow_root, tmp_path):
+    out = tmp_path / "o"
+    fl.export(flow_root, out, today=date(2026, 10, 26))
+    with pytest.raises(FileExistsError, match="flow-lists"):
+        fl.export(flow_root, out, today=date(2026, 10, 26))
+    fl.export(flow_root, out, today=date(2026, 10, 26), overwrite=True)
+
+
+def test_export_defaults_date_to_today(flow_root, tmp_path):
+    result = fl.export(flow_root, tmp_path / "o")
+    assert date.today().isoformat() in result.xlsx.name

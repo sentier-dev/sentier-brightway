@@ -13,7 +13,7 @@ import pytest
 from sentier_brightway import flow_lists as fl
 from sentier_brightway.bridge import load_bridge
 from sentier_brightway.flows import load_ef_flows, load_source_flows
-from sentier_brightway.inventory import load_inventory
+from sentier_brightway.inventory import Inventory, load_inventory
 from sentier_brightway.methods import load_methods
 from tests.conftest import B1, B2, B3, CLIMATE, E1, E2, E3, FLOWS, INVENTORY_FOLDER, IONISING, P2
 
@@ -306,3 +306,38 @@ def test_bafu_to_ef_rejects_duplicate_coverage_code(flow_root):
     kw["coverage"] = pd.concat([kw["coverage"], kw["coverage"].iloc[[0]]], ignore_index=True)
     with pytest.raises(ValueError, match="duplicate"):
         fl.build_bafu_to_ef(**kw)
+
+
+# ------------------------------------------------------------------ ef_flows, processes
+
+
+def test_ef_flows_distinct_targets_with_counts_and_methods(flow_root):
+    kw = _inputs(flow_root)
+    b2e = fl.build_bafu_to_ef(**kw)
+    df = fl.build_ef_flows(b2e, kw["bridge"], kw["methods"])
+    assert list(df.columns) == list(fl.EF_FLOWS_COLUMNS)
+    assert sorted(df["ef_uuid"]) == sorted([E1, E2, E3]) and df["ef_uuid"].is_unique
+    by = df.set_index("ef_uuid")
+    assert by.loc[E1, "bafu_source_count"] == 1  # B4 is in the bridge but unused
+    assert by.loc[E1, "exchange_count"] == 2
+    assert by.loc[E1, "ef_unit"] == "kilogram"  # first bridge unit wins, like the build
+    assert by.loc[E1, "ef_methods"] == CLIMATE and by.loc[E1, "ef_methods_with_factor"] == 1
+    assert by.loc[E3, "ef_methods"] == "" and by.loc[E3, "ef_methods_with_factor"] == 0
+    keys = list(zip(df["ef_context"], df["ef_name"]))
+    assert keys == sorted(keys)
+
+
+def test_processes_sheet(flow_root):
+    df = fl.build_processes(load_inventory(flow_root))
+    assert list(df.columns) == list(fl.PROCESS_COLUMNS)
+    assert len(df) == 2 and df["code"].is_unique
+    assert set(df["brightway_database"]) == {"bafu-2026"}
+    assert df.iloc[0]["name"] == "Electricity, low voltage, at grid"
+    assert df.iloc[0]["unit"] == "kWh" and df.iloc[0]["sector"] == "electricity"
+
+
+def test_processes_rejects_duplicate_code(flow_root):
+    inv = load_inventory(flow_root)
+    dup = pd.concat([inv.processes, inv.processes.iloc[[0]]], ignore_index=True)
+    with pytest.raises(ValueError, match="duplicate"):
+        fl.build_processes(Inventory(processes=dup, exchanges=inv.exchanges, source=inv.source))

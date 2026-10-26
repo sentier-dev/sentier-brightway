@@ -21,7 +21,15 @@ import pandas as pd
 
 from ._frames import data_root_error
 from .bridge import BridgeEntry
-from .constants import BIOSPHERE_DB, BRIDGE_FOLDER, DEFAULT_SOURCE, REPO_MAPPINGS, residual_db
+from .constants import (
+    BIOSPHERE_DB,
+    BRIDGE_FOLDER,
+    DEFAULT_SOURCE,
+    REPO_MAPPINGS,
+    inventory_db,
+    residual_db,
+)
+from .inventory import Inventory
 from .methods import MethodSpec
 
 COVERAGE_FILE = "coverage.json"
@@ -261,3 +269,77 @@ def build_bafu_to_ef(
     return df.sort_values(
         ["bafu_compartment", "bafu_sub_compartment", "bafu_name"], kind="stable"
     ).reset_index(drop=True)
+
+
+# ------------------------------------------------------------------ ef_flows, processes
+
+EF_FLOWS_COLUMNS = (
+    "ef_uuid",
+    "ef_name",
+    "ef_context",
+    "ef_unit",
+    "ef_cas",
+    "bafu_source_count",
+    "exchange_count",
+    "ef_methods_with_factor",
+    "ef_methods",
+)
+
+PROCESS_COLUMNS = (
+    "name",
+    "reference_product",
+    "unit",
+    "location",
+    "sector",
+    "process_type",
+    "code",
+    "brightway_database",
+)
+
+
+def build_ef_flows(
+    bafu_to_ef: pd.DataFrame,
+    bridge: Mapping[str, BridgeEntry],
+    methods: tuple[MethodSpec, ...],
+) -> pd.DataFrame:
+    """The distinct EF 3.1 flows the mapped BAFU flows land on."""
+    units: dict[str, str] = {}
+    for entry in bridge.values():  # package order, first wins: same rule as build()
+        units.setdefault(entry.target_code, entry.target_unit)
+    per_flow = methods_per_flow(methods)
+    mapped = bafu_to_ef[bafu_to_ef["status"] == "mapped"]
+    grouped = mapped.groupby("ef_uuid", sort=False).agg(
+        ef_name=("ef_name", "first"),
+        ef_context=("ef_context", "first"),
+        ef_cas=("ef_cas", "first"),
+        bafu_source_count=("bafu_code", "size"),
+        exchange_count=("exchange_count", "sum"),
+    )
+    grouped = grouped.reset_index()
+    grouped["ef_unit"] = grouped["ef_uuid"].map(units)
+    grouped["ef_methods"] = grouped["ef_uuid"].map(lambda c: "; ".join(per_flow.get(c, ())))
+    grouped["ef_methods_with_factor"] = grouped["ef_uuid"].map(lambda c: len(per_flow.get(c, ())))
+    df = grouped[list(EF_FLOWS_COLUMNS)]
+    return df.sort_values(["ef_context", "ef_name"], kind="stable").reset_index(drop=True)
+
+
+def build_processes(inventory: Inventory) -> pd.DataFrame:
+    """The technosphere nomenclature: one row per process, as installed in Brightway."""
+    p = inventory.processes
+    dup = p["process_id"][p["process_id"].duplicated()]
+    if not dup.empty:
+        raise ValueError(f"processes: duplicate process_id: {_first(dup)}")
+    df = pd.DataFrame(
+        {
+            "name": p["name"],
+            "reference_product": p["reference_product"],
+            "unit": p["reference_unit"],
+            "location": p["location"],
+            "sector": p["sector"] if "sector" in p.columns else "",
+            "process_type": p["process_type"],
+            "code": p["process_id"],
+            "brightway_database": inventory_db(inventory.source),
+        },
+        columns=list(PROCESS_COLUMNS),
+    )
+    return df.sort_values(["sector", "name", "location"], kind="stable").reset_index(drop=True)

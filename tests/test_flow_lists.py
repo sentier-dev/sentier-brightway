@@ -5,6 +5,7 @@ unmapped used flow (B5), the nomenclature target E3 in the EF vocab, and a cover
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pandas as pd
@@ -341,3 +342,46 @@ def test_processes_rejects_duplicate_code(flow_root):
     dup = pd.concat([inv.processes, inv.processes.iloc[[0]]], ignore_index=True)
     with pytest.raises(ValueError, match="duplicate"):
         fl.build_processes(Inventory(processes=dup, exchanges=inv.exchanges, source=inv.source))
+
+
+# ------------------------------------------------------------------ provenance
+
+
+def _git(cwd: Path, *args: str) -> str:
+    env = {
+        "GIT_AUTHOR_NAME": "t",
+        "GIT_AUTHOR_EMAIL": "t@t",
+        "GIT_COMMITTER_NAME": "t",
+        "GIT_COMMITTER_EMAIL": "t@t",
+        "HOME": str(cwd),
+        "PATH": "/usr/bin:/bin",
+    }
+    done = subprocess.run(
+        ["git", *args], cwd=cwd, env=env, check=True, capture_output=True, text=True
+    )
+    return done.stdout.strip()
+
+
+def test_repo_pins_sha_dirty_and_unknown(tmp_path):
+    root = tmp_path / "dds"
+    for repo in ("sentier-inventory", "sentier-vocab", "sentier-methods"):
+        d = root / repo
+        d.mkdir(parents=True)
+        _git(d, "init", "-q")
+        (d / "f").write_text("x")
+        _git(d, "add", "f")
+        _git(d, "commit", "-q", "-m", "init")
+    (root / "sentier-vocab" / "f").write_text("changed")  # dirty tree
+    (root / "sentier-mappings").mkdir()  # not a git repo
+    pins = {p.repo: p for p in fl.repo_pins(root)}
+    assert list(pins) == [
+        "sentier-inventory",
+        "sentier-vocab",
+        "sentier-methods",
+        "sentier-mappings",
+    ]
+    assert pins["sentier-inventory"].sha == _git(root / "sentier-inventory", "rev-parse", "HEAD")
+    assert pins["sentier-inventory"].dirty is False
+    assert pins["sentier-vocab"].dirty is True
+    assert pins["sentier-vocab"].label.endswith("+dirty")
+    assert pins["sentier-mappings"].sha == "unknown" and pins["sentier-mappings"].dirty is False

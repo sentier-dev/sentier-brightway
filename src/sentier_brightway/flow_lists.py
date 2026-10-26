@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 
@@ -25,7 +27,10 @@ from .constants import (
     BIOSPHERE_DB,
     BRIDGE_FOLDER,
     DEFAULT_SOURCE,
+    REPO_INVENTORY,
     REPO_MAPPINGS,
+    REPO_METHODS,
+    REPO_VOCAB,
     inventory_db,
     residual_db,
 )
@@ -343,3 +348,40 @@ def build_processes(inventory: Inventory) -> pd.DataFrame:
         columns=list(PROCESS_COLUMNS),
     )
     return df.sort_values(["sector", "name", "location"], kind="stable").reset_index(drop=True)
+
+
+# ------------------------------------------------------------------ provenance
+
+REPOS = (REPO_INVENTORY, REPO_VOCAB, REPO_METHODS, REPO_MAPPINGS)
+
+
+@dataclass(frozen=True)
+class RepoPin:
+    repo: str
+    sha: str  # full git SHA of the checkout read, or "unknown"
+    dirty: bool  # working tree had uncommitted or untracked changes
+
+    @property
+    def label(self) -> str:
+        return f"{self.sha}+dirty" if self.dirty else self.sha
+
+
+def _git_output(repo_dir: Path, *args: str) -> str | None:
+    try:
+        done = subprocess.run(
+            ["git", "-C", str(repo_dir), *args], capture_output=True, text=True, check=False
+        )
+    except OSError:
+        return None
+    return done.stdout.strip() if done.returncode == 0 else None
+
+
+def repo_pins(data_root: Path) -> tuple[RepoPin, ...]:
+    """The git state of each data-repo checkout under ``data_root``; never raises."""
+    pins = []
+    for repo in REPOS:
+        repo_dir = Path(data_root) / repo
+        sha = _git_output(repo_dir, "rev-parse", "HEAD") if (repo_dir / ".git").exists() else None
+        status = _git_output(repo_dir, "status", "--porcelain") if sha else None
+        pins.append(RepoPin(repo=repo, sha=sha or "unknown", dirty=bool(status)))
+    return tuple(pins)

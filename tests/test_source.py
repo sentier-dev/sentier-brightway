@@ -9,7 +9,7 @@ from sentier_brightway import assemble, cli, coverage, import_files
 from sentier_brightway.constants import DEFAULT_SOURCE, SOURCE_IRI_PREFIX, citation
 from sentier_brightway.datapackage import inventory_folder, load_inventory_datapackage
 from sentier_brightway.report import render
-from tests.conftest import B3, INVENTORY_FOLDER, P1, P2, inventory_metadata
+from tests.conftest import B3, INVENTORY_FOLDER, P1, P2, VOCAB_TERMS, inventory_metadata
 
 OTHER = "other-1"
 OTHER_VERSION = "2025"
@@ -27,13 +27,12 @@ def other_root(data_root):
     proc["source_version"] = OTHER_VERSION
     proc.to_parquet(path, index=False)
     (folder / "metadata.json").write_text(json.dumps(inventory_metadata(OTHER, OTHER_VERSION)))
-    folder = data_root / "sentier-vocab" / "data" / "elementary-flows"
-    for shard in folder.glob("*.parquet"):
-        df = pd.read_parquet(shard)
+    for term_file in (data_root / VOCAB_TERMS).glob("*.parquet"):
+        df = pd.read_parquet(term_file)
         df["source"] = df["source"].replace(
             {SOURCE_IRI_PREFIX + DEFAULT_SOURCE: SOURCE_IRI_PREFIX + OTHER}
         )
-        df.to_parquet(shard, index=False)
+        df.to_parquet(term_file, index=False)
     return data_root
 
 

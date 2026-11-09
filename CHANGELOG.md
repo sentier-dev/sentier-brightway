@@ -2,6 +2,11 @@
 
 ## 0.1.0 (unreleased)
 
+- sentier-vocab term layer (sentier-vocab#34): elementary flows are read from
+  `terms/<release>[-NN].parquet`, filtered on `type == "elementary-flow"`, with compartment,
+  sub-compartment and CAS number taken from the JSON `attributes` column. `sources.toml` pins
+  the term files of the `ef-3.1` and `bafu-2026` releases instead of the seventeen
+  `data/elementary-flows/` shards; the flows and the coverage are unchanged.
 - sentier-inventory layout 0.3.0: one folder per source release (`data/<source>-<version>/`)
   with `sector` as a process column. `load_inventory(root, source, source_version=None)` picks
   the folder from its `metadata.json` (errors list the source/version pairs present; two

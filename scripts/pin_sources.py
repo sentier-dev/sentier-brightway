@@ -20,7 +20,12 @@ from pathlib import Path
 
 REPOS = {
     "sentier-inventory": ("sentier-dev/sentier-inventory", ("data/",), (".parquet", ".json")),
-    "sentier-vocab": ("sentier-dev/sentier-vocab", ("data/elementary-flows/",), (".parquet",)),
+    # one term file set per source release: only the releases whose flows are installed
+    "sentier-vocab": (
+        "sentier-dev/sentier-vocab",
+        ("terms/ef-3.1", "terms/bafu-2026"),
+        (".parquet",),
+    ),
     "sentier-methods": (
         "sentier-dev/sentier-methods",
         ("data/01-ef-3.1/",),

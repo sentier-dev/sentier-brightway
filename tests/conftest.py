@@ -179,77 +179,95 @@ def inventory_metadata(
     }
 
 
+#: Term files of the fixture vocab, one per source release (sentier-vocab ``terms/``).
+VOCAB_TERMS = Path("sentier-vocab") / "terms"
+EF_TERMS = VOCAB_TERMS / "ef-3.1.parquet"
+BAFU_TERMS = VOCAB_TERMS / "bafu-2026.parquet"
+_FLOW_ATTRIBUTES = ("compartment", "sub_compartment", "cas_number", "formula")
+
+
+def vocab_term(*, iri: str, pref_label: str, source: str, type: str = "elementary-flow", **attrs):
+    """One row of a sentier-vocab term file; ``attrs`` become the JSON ``attributes``."""
+    unknown = set(attrs) - set(_FLOW_ATTRIBUTES)
+    if unknown:
+        raise TypeError(f"unknown flow attributes {sorted(unknown)}")
+    attributes = {key: value for key, value in attrs.items() if value is not None}
+    return {
+        "iri": iri,
+        "type": type,
+        "pref_label": pref_label,
+        "source": source,
+        "status": "draft",
+        "attributes": json.dumps(attributes, sort_keys=True) if attributes else None,
+    }
+
+
 def _vocab_frame(rows: list[dict]) -> pd.DataFrame:
-    cols = [
-        "compartment",
-        "sub_compartment",
-        "cas_number",
-        "formula",
-        "iri",
-        "pref_label",
-        "source",
-    ]
+    cols = ["iri", "type", "pref_label", "source", "status", "attributes"]
     return pd.DataFrame(rows, columns=cols)
 
 
 def _write_vocab(root: Path) -> None:
-    folder = root / "sentier-vocab" / "data" / "elementary-flows"
-    folder.mkdir(parents=True)
+    (root / VOCAB_TERMS).mkdir(parents=True)
     ef = "https://vocab.sentier.dev/sources/ef-3.1"
     bafu = "https://vocab.sentier.dev/sources/bafu-2026"
     _vocab_frame(
         [
-            dict(
+            vocab_term(
                 compartment="air",
-                sub_compartment=None,
                 cas_number="124-38-9",
                 formula="CO2",
                 iri=FLOWS + E1,
                 pref_label="carbon dioxide (fossil)",
                 source=ef,
             ),
-            dict(
+            vocab_term(
                 compartment="water",
-                sub_compartment=None,
-                cas_number=None,
-                formula=None,
                 iri=FLOWS + E2,
                 pref_label="uranium-238",
                 source=ef,
             ),
+            # a release holds every term type; only elementary flows are flows
+            vocab_term(
+                type="impact-category",
+                iri="https://vocab.sentier.dev/impact-categories/ef-3.1/climate-change",
+                pref_label="Climate change",
+                source=ef,
+            ),
         ]
-    ).to_parquet(folder / "air-01.parquet", index=False)
+    ).to_parquet(root / EF_TERMS, index=False)
     _vocab_frame(
         [
-            dict(
+            vocab_term(
                 compartment="emissions to air",
                 sub_compartment="unspecified",
                 cas_number="124-38-9",
-                formula=None,
                 iri=FLOWS + B1,
                 pref_label="Carbon dioxide, fossil",
                 source=bafu,
             ),
-            dict(
+            vocab_term(
                 compartment="emissions to water",
                 sub_compartment="lake",
-                cas_number=None,
-                formula=None,
                 iri=FLOWS + B2,
                 pref_label="Uranium-238",
                 source=bafu,
             ),
-            dict(
+            vocab_term(
                 compartment="emissions to air",
                 sub_compartment="unspecified",
-                cas_number=None,
-                formula=None,
                 iri=FLOWS + B3,
                 pref_label="Heat, waste",
                 source=bafu,
             ),
+            vocab_term(
+                type="process",
+                iri="https://vocab.sentier.dev/processes/bafu/" + P1,
+                pref_label="a process term",
+                source=bafu,
+            ),
         ]
-    ).to_parquet(folder / "emissions-to-air.parquet", index=False)
+    ).to_parquet(root / BAFU_TERMS, index=False)
 
 
 def _write_methods(root: Path) -> None:

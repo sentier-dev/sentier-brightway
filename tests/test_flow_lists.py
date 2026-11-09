@@ -21,7 +21,22 @@ from sentier_brightway.bridge import load_bridge
 from sentier_brightway.flows import load_ef_flows, load_source_flows
 from sentier_brightway.inventory import Inventory, load_inventory
 from sentier_brightway.methods import load_methods
-from tests.conftest import B1, B2, B3, CLIMATE, E1, E2, E3, FLOWS, INVENTORY_FOLDER, IONISING, P2
+from tests.conftest import (
+    B1,
+    B2,
+    B3,
+    BAFU_TERMS,
+    CLIMATE,
+    E1,
+    E2,
+    E3,
+    EF_TERMS,
+    FLOWS,
+    INVENTORY_FOLDER,
+    IONISING,
+    P2,
+    vocab_term,
+)
 
 B5 = "b5b5b5b5-0000-5000-8000-000000000005"  # used by P2, no EF counterpart (unmapped)
 EF_SOURCE = "https://vocab.sentier.dev/sources/ef-3.1"
@@ -94,26 +109,20 @@ def _append_parquet(path: Path, row: dict) -> None:
 
 @pytest.fixture
 def flow_root(data_root: Path) -> Path:
-    vocab = data_root / "sentier-vocab" / "data" / "elementary-flows"
     _append_parquet(
-        vocab / "air-01.parquet",
-        dict(
+        data_root / EF_TERMS,
+        vocab_term(
             compartment="air",
-            sub_compartment=None,
-            cas_number=None,
-            formula=None,
             iri=FLOWS + E3,
             pref_label="heat, waste",
             source=EF_SOURCE,
         ),
     )
     _append_parquet(
-        vocab / "emissions-to-air.parquet",
-        dict(
+        data_root / BAFU_TERMS,
+        vocab_term(
             compartment="emissions to air",
             sub_compartment="unspecified",
-            cas_number=None,
-            formula=None,
             iri=FLOWS + B5,
             pref_label="Acidity, unspecified",
             source=BAFU_SOURCE,

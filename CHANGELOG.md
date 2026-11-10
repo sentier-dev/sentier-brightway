@@ -2,6 +2,10 @@
 
 ## 0.1.0 (unreleased)
 
+- Pins moved to the current `main` of the four data repos (sentier-vocab `5970f64`, where the
+  BAFU-2026 term file gained `bafu-unit:` notations; sentier-mappings `3b85be3`; sentier-methods
+  `ec59836`; sentier-inventory `c28bcd5`). Only one pinned file changed content; flows and
+  coverage are unchanged (2,566 of 2,679).
 - sentier-vocab term layer (sentier-vocab#34): elementary flows are read from
   `terms/<release>[-NN].parquet`, filtered on `type == "elementary-flow"`, with compartment,
   sub-compartment and CAS number taken from the JSON `attributes` column. `sources.toml` pins

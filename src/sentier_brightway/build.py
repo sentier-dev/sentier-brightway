@@ -9,7 +9,7 @@ from typing import Mapping
 
 import pandas as pd
 
-from .bridge import BridgeEntry
+from .bridge import BridgeEntry, unit_conflicts
 from .constants import BIOSPHERE_DB, inventory_db, residual_db
 from .inventory import Inventory
 from .methods import MethodSpec
@@ -63,21 +63,17 @@ def _node_type(categories: tuple[str, ...]) -> str:
 
 
 def _bridge_units(bridge: Mapping[str, BridgeEntry]) -> tuple[dict[str, str], tuple[str, ...]]:
-    """First normalised target unit per EF code (bridge order), plus the codes whose entries
-    disagree on the unit, in the order they were first seen."""
-    seen: dict[str, set[str]] = defaultdict(set)
+    """First normalised target unit per EF code (bridge order), plus the bridge's unit
+    conflicts as ``bridge.unit_conflicts`` names them."""
     units: dict[str, str] = {}
     for entry in bridge.values():
-        unit = normalize_unit(entry.target_unit)
-        units.setdefault(entry.target_code, unit)
-        seen[entry.target_code].add(unit)
-    conflicts = tuple(code for code, found in seen.items() if len(found) > 1)
-    return units, conflicts
+        units.setdefault(entry.target_code, normalize_unit(entry.target_unit))
+    return units, unit_conflicts(bridge)
 
 
 def _check_unit_conflicts(conflicts: tuple[str, ...]) -> None:
     if conflicts:
-        examples = ", ".join(conflicts[:3])
+        examples = "; ".join(conflicts[:3])
         raise ValueError(
             f"{len(conflicts)} EF flows are targeted with conflicting units in the bridge "
             f"(e.g. {examples}); use one target unit and explicit source conversion factors"

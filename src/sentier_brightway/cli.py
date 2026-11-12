@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-import warnings
 from pathlib import Path
 
 from . import coverage, import_db, import_files, render
@@ -170,11 +169,7 @@ def main(argv: list[str] | None = None) -> int:
     logger.addHandler(handler)
     logger.setLevel(min(logger.level or logging.INFO, logging.INFO))
     try:
-        # the rendered report already carries the unit-conflict line; the API keeps warning,
-        # and any other warning (bw2data's included) still reaches the user
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", message=r".*conflicting units", category=UserWarning)
-            text = _run(args)
+        text = _run(args)
     except (FetchError, OSError, ValueError, ImportError, RuntimeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2

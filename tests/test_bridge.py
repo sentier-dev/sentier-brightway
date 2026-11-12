@@ -1,8 +1,11 @@
 import json
+from decimal import Decimal
+from fractions import Fraction
 
+import numpy as np
 import pytest
 
-from sentier_brightway.bridge import BridgeEntry, applied_packages, load_bridge
+from sentier_brightway.bridge import BridgeEntry, applied_packages, load_bridge, unit_conflicts
 from tests.conftest import B1, B2, B3, E1, E2, E3
 
 FOLDER = "sentier-mappings/data/bafu-2026-v1__ef-3.1"
@@ -149,7 +152,10 @@ def test_null_conversion_factor_defaults_to_one(data_root):
     assert load_bridge(data_root)["new"].conversion_factor == 1.0
 
 
-@pytest.mark.parametrize("factor", [True, False, 0, -1, float("nan"), float("inf"), "bad"])
+@pytest.mark.parametrize(
+    "factor",
+    [True, False, 0, -1, float("nan"), float("inf"), "bad", pytest.param(10**400, id="huge-int")],
+)
 def test_invalid_conversion_factor_is_refused(data_root, factor):
     _add_package(
         data_root,
@@ -163,8 +169,9 @@ def test_invalid_conversion_factor_is_refused(data_root, factor):
             }
         ],
     )
-    with pytest.raises(ValueError, match="invalid-factor.json entry 0: conversion_factor"):
+    with pytest.raises(ValueError, match="invalid-factor.json entry 0: conversion_factor") as exc:
         load_bridge(data_root)
+    assert str(exc.value).count("invalid-factor.json entry 0") == 1  # prefixed exactly once
 
 
 @pytest.mark.parametrize("source_unit,target_unit", [("Bq", "kBq"), ("km", "m"), ("kWh", "MJ")])
@@ -244,7 +251,20 @@ def test_declared_aliases_need_no_multiplier(data_root, source_unit, target_unit
     assert load_bridge(data_root)["new"].conversion_factor == 1.0
 
 
-@pytest.mark.parametrize("factor", [True, False, 0, -1, float("nan"), float("inf")])
+@pytest.mark.parametrize(
+    "factor",
+    [
+        True,
+        False,
+        0,
+        -1,
+        float("nan"),
+        float("inf"),
+        "1",
+        None,
+        pytest.param(10**400, id="huge-int"),
+    ],
+)
 def test_direct_bridge_entries_cannot_bypass_factor_validation(factor):
     with pytest.raises(ValueError, match="conversion_factor"):
         BridgeEntry("tgt", "kBq", factor)
@@ -390,3 +410,28 @@ def test_applied_packages_lists_what_load_bridge_applies(data_root):
         "biosphere-4-nomenclature.json",
     )
     assert applied_packages(data_root, include_nomenclature=False) == ("biosphere-1-curated.json",)
+
+
+def test_unit_conflicts_name_the_first_entry_of_each_unit():
+    bridge = {
+        "a": BridgeEntry("ef1", "kilogram", origin="p1.json entry 0"),
+        "b": BridgeEntry("ef1", "kg", origin="p1.json entry 1"),  # same unit, other spelling
+        "c": BridgeEntry("ef1", "kBq", origin="p2.json entry 3"),
+        "d": BridgeEntry("ef1", "kBq", origin="p2.json entry 4"),
+        "e": BridgeEntry("ef2", "kg"),  # no conflict
+        "f": BridgeEntry("ef3", "MJ"),
+        "g": BridgeEntry("ef3", "kWh"),  # built outside load_bridge: no origin
+    }
+    assert unit_conflicts(bridge) == (
+        "ef1: 'kilogram' at p1.json entry 0, 'kBq' at p2.json entry 3",
+        "ef3: 'MJ' at an entry built outside load_bridge, "
+        "'kWh' at an entry built outside load_bridge",
+    )
+    assert unit_conflicts({}) == ()
+
+
+@pytest.mark.parametrize(
+    "factor", [1, 2.5, np.float32(1.5), np.int64(2), Decimal("1.5"), Fraction(1, 2)]
+)
+def test_direct_bridge_entries_accept_numbers(factor):
+    assert BridgeEntry("tgt", "kg", factor).conversion_factor == float(factor)

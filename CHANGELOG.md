@@ -12,7 +12,11 @@
   refusing. Conversion factors must be positive and finite, and a declared magnitude change
   (Bq/kBq, m/km, kWh/MJ, m2/ha, in either direction) needs its exact factor. Nonempty
   characterisation-factor fallback instructions are refused, because the EF bridge cannot apply
-  them yet.
+  them yet. A null or missing factor defaults to 1.0 only when the declared source unit and the
+  target unit are the same unit (spelling aside); any other declared unit change without a
+  factor is refused, and an entry that declares no source unit still defaults to 1.0.
+  Bridge-entry refusals name the package file and entry index, and a unit conflict names the
+  first entry of each conflicting unit.
 - sentier-inventory layout 0.3.0: one folder per source release (`data/<source>-<version>/`)
   with `sector` as a process column. `load_inventory(root, source, source_version=None)` picks
   the folder from its `metadata.json` (errors list the source/version pairs present; two

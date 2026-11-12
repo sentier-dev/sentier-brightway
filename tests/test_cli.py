@@ -31,7 +31,11 @@ def test_cli_unit_conflict_refuses_file_export(data_root, tmp_path, capsys):
     out = tmp_path / "out"
     rc = cli.main(["files", "--data-root", str(data_root), "--out", str(out)])
     assert rc == 2
-    assert "conflicting units" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "conflicting units" in err
+    # each conflicting unit is named by its own spelling, package file and entry index
+    assert f"'kilogram' at {folder / 'biosphere-1-curated.json'} entry 0" in err
+    assert f"'kBq' at {path} entry 1" in err
     assert not out.exists()
 
 

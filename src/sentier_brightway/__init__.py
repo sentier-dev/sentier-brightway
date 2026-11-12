@@ -32,7 +32,11 @@ __all__ = [
 
 
 def _assemble_from_root(
-    root: Path, include_nomenclature: bool, source: str, source_version: str | None = None
+    root: Path,
+    include_nomenclature: bool,
+    source: str,
+    source_version: str | None = None,
+    refuse_unit_conflicts: bool = True,
 ) -> BuildResult:
     """Build from an already resolved data root."""
     return build(
@@ -41,6 +45,7 @@ def _assemble_from_root(
         bafu_flows=load_source_flows(root, source),
         bridge=load_bridge(root, include_nomenclature=include_nomenclature),
         methods=load_methods(root),
+        refuse_unit_conflicts=refuse_unit_conflicts,
     )
 
 
@@ -66,8 +71,15 @@ def coverage(
     source: str = DEFAULT_SOURCE,
     source_version: str | None = None,
 ) -> Coverage:
-    """Linking coverage without touching Brightway."""
-    return assemble(data_root, include_nomenclature, source, source_version).coverage
+    """Linking coverage without touching Brightway. Unit conflicts are counted here;
+    ``import_db`` and ``import_files`` refuse them."""
+    return _assemble_from_root(
+        resolve_data_root(data_root),
+        include_nomenclature,
+        source,
+        source_version,
+        refuse_unit_conflicts=False,
+    ).coverage
 
 
 def import_db(

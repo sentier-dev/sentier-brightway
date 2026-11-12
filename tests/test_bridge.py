@@ -1,8 +1,11 @@
 import json
+from decimal import Decimal
+from fractions import Fraction
 
+import numpy as np
 import pytest
 
-from sentier_brightway.bridge import BridgeEntry, applied_packages, load_bridge
+from sentier_brightway.bridge import BridgeEntry, applied_packages, load_bridge, unit_conflicts
 from tests.conftest import B1, B2, B3, E1, E2, E3
 
 FOLDER = "sentier-mappings/data/bafu-2026-v1__ef-3.1"
@@ -34,7 +37,9 @@ def _write_metadata(data_root, packages: list[dict], schema_version: str | None 
 
 def test_replace_entries_are_keyed_by_source_code(data_root):
     bridge = load_bridge(data_root)
-    assert bridge[B1] == BridgeEntry(target_code=E1, target_unit="kilogram", conversion_factor=1.0)
+    assert bridge[B1] == BridgeEntry(
+        target_code=E1, target_unit="kilogram", conversion_factor=1.0, source_unit="kg"
+    )
     assert bridge[B2].conversion_factor == 0.001
     assert bridge[B2].target_code == E2
 
@@ -147,6 +152,157 @@ def test_null_conversion_factor_defaults_to_one(data_root):
     assert load_bridge(data_root)["new"].conversion_factor == 1.0
 
 
+@pytest.mark.parametrize(
+    "factor",
+    [True, False, 0, -1, float("nan"), float("inf"), "bad", pytest.param(10**400, id="huge-int")],
+)
+def test_invalid_conversion_factor_is_refused(data_root, factor):
+    _add_package(
+        data_root,
+        "invalid-factor.json",
+        2,
+        [
+            {
+                "source": {"code": "new", "unit": "Bq"},
+                "target": {"code": "tgt", "unit": "kBq"},
+                "conversion_factor": factor,
+            }
+        ],
+    )
+    with pytest.raises(ValueError, match="invalid-factor.json entry 0: conversion_factor") as exc:
+        load_bridge(data_root)
+    assert str(exc.value).count("invalid-factor.json entry 0") == 1  # prefixed exactly once
+
+
+@pytest.mark.parametrize("source_unit,target_unit", [("Bq", "kBq"), ("km", "m"), ("kWh", "MJ")])
+@pytest.mark.parametrize("factor", [None, 1.0, "missing"])
+def test_declared_magnitude_change_requires_its_multiplier(
+    data_root, source_unit, target_unit, factor
+):
+    entry = {
+        "source": {"code": "new", "unit": source_unit},
+        "target": {"code": "tgt", "unit": target_unit},
+    }
+    if factor != "missing":
+        entry["conversion_factor"] = factor
+    _add_package(data_root, "missing-scale.json", 2, [entry])
+    with pytest.raises(
+        ValueError, match="missing-scale.json entry 0.*required for declared units"
+    ):
+        load_bridge(data_root)
+
+
+@pytest.mark.parametrize("source_unit,target_unit", [("kg", "m3"), ("kg", "MJ"), ("m3", "Nm3")])
+@pytest.mark.parametrize("factor", [None, "missing"])
+def test_null_factor_with_changed_unit_is_refused(data_root, source_unit, target_unit, factor):
+    entry = {
+        "source": {"code": "new", "unit": source_unit},
+        "target": {"code": "tgt", "unit": target_unit},
+    }
+    if factor != "missing":
+        entry["conversion_factor"] = factor
+    _add_package(data_root, "unit-change.json", 2, [entry])
+    match = "unit-change.json entry 0: conversion_factor is required to map"
+    with pytest.raises(ValueError, match=match):
+        load_bridge(data_root)
+
+
+def test_explicit_factor_with_changed_unit_is_kept(data_root):
+    _add_package(
+        data_root,
+        "explicit.json",
+        2,
+        [
+            {
+                "source": {"code": "new", "unit": "m3"},
+                "target": {"code": "tgt", "unit": "kg"},
+                "conversion_factor": 0.8,
+            }
+        ],
+    )
+    assert load_bridge(data_root)["new"].conversion_factor == 0.8
+
+
+def test_legacy_absent_source_declaration_stays_readable(data_root):
+    _add_package(
+        data_root,
+        "legacy.json",
+        2,
+        [{"source": {"code": "new"}, "target": {"code": "tgt", "unit": "kBq"}}],
+    )
+    assert load_bridge(data_root)["new"].conversion_factor == 1.0
+
+
+@pytest.mark.parametrize(
+    "source_unit,target_unit", [("kg", "kilogram"), ("Bq", "Becquerel"), ("kWh", "kilowatt hour")]
+)
+def test_declared_aliases_need_no_multiplier(data_root, source_unit, target_unit):
+    _add_package(
+        data_root,
+        "aliases.json",
+        2,
+        [
+            {
+                "source": {"code": "new", "unit": source_unit},
+                "target": {"code": "tgt", "unit": target_unit},
+            }
+        ],
+    )
+    assert load_bridge(data_root)["new"].conversion_factor == 1.0
+
+
+@pytest.mark.parametrize(
+    "factor",
+    [
+        True,
+        False,
+        0,
+        -1,
+        float("nan"),
+        float("inf"),
+        "1",
+        None,
+        pytest.param(10**400, id="huge-int"),
+    ],
+)
+def test_direct_bridge_entries_cannot_bypass_factor_validation(factor):
+    with pytest.raises(ValueError, match="conversion_factor"):
+        BridgeEntry("tgt", "kBq", factor)
+
+
+def test_method_fallback_instructions_are_not_silently_ignored(data_root):
+    _add_package(
+        data_root,
+        "fallbacks.json",
+        2,
+        [
+            {
+                "source": {"code": "new", "unit": "kg"},
+                "target": {"code": "tgt", "unit": "kilogram"},
+                "characterization_factor_fallbacks": [{"identifier": "fallback"}],
+            }
+        ],
+    )
+    with pytest.raises(ValueError, match="fallbacks.json entry 0.*method-scoped"):
+        load_bridge(data_root)
+
+
+def test_empty_fallback_list_keeps_direct_mapping_behavior(data_root):
+    _add_package(
+        data_root,
+        "direct-only.json",
+        2,
+        [
+            {
+                "source": {"code": "new", "unit": "kg"},
+                "target": {"code": "tgt", "unit": "kilogram"},
+                "characterization_factor_fallbacks": [],
+            }
+        ],
+    )
+    assert load_bridge(data_root)["new"].target_code == "tgt"
+
+
 def test_package_entry_missing_order_is_an_error(data_root):
     folder = data_root / FOLDER
     meta = json.loads((folder / "metadata.json").read_text())
@@ -254,3 +410,28 @@ def test_applied_packages_lists_what_load_bridge_applies(data_root):
         "biosphere-4-nomenclature.json",
     )
     assert applied_packages(data_root, include_nomenclature=False) == ("biosphere-1-curated.json",)
+
+
+def test_unit_conflicts_name_the_first_entry_of_each_unit():
+    bridge = {
+        "a": BridgeEntry("ef1", "kilogram", origin="p1.json entry 0"),
+        "b": BridgeEntry("ef1", "kg", origin="p1.json entry 1"),  # same unit, other spelling
+        "c": BridgeEntry("ef1", "kBq", origin="p2.json entry 3"),
+        "d": BridgeEntry("ef1", "kBq", origin="p2.json entry 4"),
+        "e": BridgeEntry("ef2", "kg"),  # no conflict
+        "f": BridgeEntry("ef3", "MJ"),
+        "g": BridgeEntry("ef3", "kWh"),  # built outside load_bridge: no origin
+    }
+    assert unit_conflicts(bridge) == (
+        "ef1: 'kilogram' at p1.json entry 0, 'kBq' at p2.json entry 3",
+        "ef3: 'MJ' at an entry built outside load_bridge, "
+        "'kWh' at an entry built outside load_bridge",
+    )
+    assert unit_conflicts({}) == ()
+
+
+@pytest.mark.parametrize(
+    "factor", [1, 2.5, np.float32(1.5), np.int64(2), Decimal("1.5"), Fraction(1, 2)]
+)
+def test_direct_bridge_entries_accept_numbers(factor):
+    assert BridgeEntry("tgt", "kg", factor).conversion_factor == float(factor)

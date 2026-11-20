@@ -2,6 +2,12 @@
 
 ## 0.1.0 (unreleased)
 
+- Backtest: a patched copy of a release may spell a location another way than the release
+  does. sentier-bafu's import fix `location-codes` writes `EURwoCH` for BAFU's `Europe
+  without Switzerland`, whose own code is longer than the seven characters EcoSpold 1 allows.
+  `compare.align` joins such a row under the release's spelling (`OWN_LOCATION_SPELLINGS`)
+  and keeps ours in what is written; the run report counts them
+  (`own_location_spellings_joined`). Without it those datasets were left unmatched.
 - sentier-vocab term layer (sentier-vocab#34): elementary flows are read from
   `terms/<release>[-NN].parquet`, filtered on `type == "elementary-flow"`, with compartment,
   sub-compartment and CAS number taken from the JSON `attributes` column. `sources.toml` pins

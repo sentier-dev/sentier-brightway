@@ -72,6 +72,13 @@ LOCATION_ALIASES = MappingProxyType(
         "RER without CH": "Europe without Switzerland",
     }
 )
+# A location our registry may spell another way than BAFU's release does -> the release's
+# spelling, for the join only (the output keeps ours). A patched copy of the release writes
+# ``EURwoCH`` for ``Europe without Switzerland``: BAFU's own code for it is longer than the
+# seven characters EcoSpold 1 allows for a location, and the import fix ``location-codes``
+# of sentier-bafu's patch tool shortens it.
+OWN_LOCATION_SPELLINGS = MappingProxyType({"EURwoCH": "Europe without Switzerland"})
+JOIN_LOCATION = "_join_location"
 
 
 def unit_factor(ours: str, table: str) -> float | None:
@@ -90,6 +97,7 @@ class Aligned:
     unmatched_ref: tuple[tuple[str, str], ...]  # (name, location) of reference rows unused
     unit_skipped: Mapping[tuple[str, str], int]  # (our unit, table unit) -> count
     aliased_ref: int = 0  # reference rows whose location went through LOCATION_ALIASES
+    respelled_ours: int = 0  # our rows joined through OWN_LOCATION_SPELLINGS
 
 
 @dataclass(frozen=True)
@@ -193,7 +201,8 @@ def align(
 ) -> Aligned:
     """Left-join ``reference`` onto ``scores`` by (name, location) and convert our scores to
     the table's unit. Names are stripped on both sides and the reference's locations go
-    through ``LOCATION_ALIASES`` before the join (ours stay as in the registry). Codes must
+    through ``LOCATION_ALIASES`` before the join. Ours stay as in the registry; a location
+    in ``OWN_LOCATION_SPELLINGS`` is joined under the release's spelling. Codes must
     be unique (downstream writers look rows up by code). Rows
     resolve to ``mapped``, ``unmatched`` (no reference row) or ``unit_skipped`` (reference
     found but no conversion known); ``<short>_ours`` is NaN unless mapped. The reference's
@@ -206,10 +215,19 @@ def align(
         dupes = sorted(scores["code"][scores["code"].duplicated()].astype(str))[:5]
         raise ValueError(f"duplicate codes in scores: {dupes}")
     ref, aliased = _normalise_reference(reference, shorts)
-    ours = scores[[*META_COLUMNS, *shorts]].assign(name=scores["name"].str.strip())
+    join_location = scores["location"].map(lambda loc: OWN_LOCATION_SPELLINGS.get(loc, loc))
+    respelled = int((join_location != scores["location"]).sum())
+    ours = scores[[*META_COLUMNS, *shorts]].assign(
+        name=scores["name"].str.strip(), **{JOIN_LOCATION: join_location}
+    )
+    join = ["name", JOIN_LOCATION]
     try:
         merged = ours.merge(
-            ref, on=list(KEY), how="left", suffixes=("_ours", "_ref"), validate="many_to_one"
+            ref.rename(columns={"location": JOIN_LOCATION}),
+            on=join,
+            how="left",
+            suffixes=("_ours", "_ref"),
+            validate="many_to_one",
         )
     except pd.errors.MergeError as exc:
         raise ValueError(f"duplicate (name, location) keys in the reference: {exc}") from exc
@@ -224,8 +242,8 @@ def align(
     for (res, _), unit, ref_unit in zip(resolved, merged["unit"], merged["ref_unit"]):
         if res == UNIT_SKIPPED:
             skipped[(unit, ref_unit)] = skipped.get((unit, ref_unit), 0) + 1
-    found = out.loc[resolution != UNMATCHED, list(KEY)]
-    found_keys = set(zip(found["name"], found["location"]))
+    found = out.loc[resolution != UNMATCHED, join]
+    found_keys = set(zip(found["name"], found[JOIN_LOCATION]))
     unmatched_ref = tuple(
         sorted(
             original
@@ -240,6 +258,7 @@ def align(
         unmatched_ref=unmatched_ref,
         unit_skipped=MappingProxyType(skipped),
         aliased_ref=aliased,
+        respelled_ours=respelled,
     )
 
 

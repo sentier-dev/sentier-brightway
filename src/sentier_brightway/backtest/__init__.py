@@ -97,6 +97,7 @@ def _counts(scores: "Scores", reference: BafuReference, aligned: Aligned) -> dic
         "unmatched": int((res == "unmatched").sum()),
         "unit_skipped": int((res == "unit_skipped").sum()),
         "location_aliases_applied": aligned.aliased_ref,
+        "own_location_spellings_joined": aligned.respelled_ours,
         "missing_methods": list(scores.missing_methods),
         "reference_blank_cells": reference.blank_cells,
     }

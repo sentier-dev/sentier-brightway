@@ -107,7 +107,7 @@ the bridge and the inventory and exits 1 on any disagreement. Nothing it writes 
 
 ## Data
 
-Pinned data links 2,617 of 2,679 BAFU flows (97.7 %) and 98.5 % of biosphere exchanges to EF 3.1. The 62 unlinked flows stay in `bafu-2026-residual` with their exchanges intact. Pins live in `src/sentier_brightway/sources.toml`; `uv run sentier-brightway coverage` prints the full report.
+Pinned data links 2,626 of 2,679 BAFU flows (98.0 %) and 98.8 % of biosphere exchanges to EF 3.1. The 53 unlinked flows stay in `bafu-2026-residual` with their exchanges intact. Pins live in `src/sentier_brightway/sources.toml`; `uv run sentier-brightway coverage` prints the full report.
 
 Limitations (v0.1): global EF factors only, no regionalized factors such as country water use; only BAFU-2026 v1 and EF 3.1; static values, no uncertainty distributions; no flow drill-down in the backtest dashboard.
 
